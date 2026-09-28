@@ -7,7 +7,7 @@ import { PlayfieldRenderer } from '../../game/render/PlayfieldRenderer';
 import { getSong, loadChart, songAnalysis } from '../../game/songs';
 import type { Chart, DifficultyId, PlayResult, SongDefinition } from '../../game/types';
 import { DEBUG_ENABLED, DEBUG_PANEL } from '../../debug';
-import { keyLabel } from '../../storage/settings';
+import { TUTORIAL_VERSION, keyLabel } from '../../storage/settings';
 import { useApp } from '../appContext';
 import { DebugPanel } from '../game/DebugPanel';
 import { DebugPresenter } from '../game/DebugPresenter';
@@ -75,7 +75,7 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
   const isFullscreen = useFullscreen();
   const [touch] = useState(isTouchPrimary);
   // Read once per play: the HOW TO PLAY card gates the very first song.
-  const [needTutorial] = useState(() => !settings.seenTutorial);
+  const [needTutorial] = useState(() => settings.tutorialSeen < TUTORIAL_VERSION);
   const [showTutorial, setShowTutorial] = useState(false);
 
   // Keep latest callbacks without restarting the engine.
@@ -235,7 +235,7 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
           touch={touch}
           onStart={() => {
             setShowTutorial(false);
-            updateSettings({ seenTutorial: true });
+            updateSettings({ tutorialSeen: TUTORIAL_VERSION });
             audio.unlock();
             engineRef.current?.start();
           }}

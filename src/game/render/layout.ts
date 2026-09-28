@@ -22,6 +22,9 @@ export interface Layout {
   noteHeight: number;
 }
 
+/** Height (px) of the top HUD block on phones; the highway starts below it. */
+export const MOBILE_HUD_HEIGHT = 150;
+
 export function computeLayout(width: number, height: number, dpr: number): Layout {
   const portrait = height / width > 1.15;
   const mobile = width < 700 || portrait;
@@ -32,7 +35,8 @@ export function computeLayout(width: number, height: number, dpr: number): Layou
   if (mobile) {
     baseWidth = Math.min(width * 0.98, height * 0.62, 560);
     judgeY = height * 0.8;
-    topY = height * 0.12;
+    // Start the highway below the HUD block (score + FEVER) so nothing covers incoming notes.
+    topY = Math.max(height * 0.12, MOBILE_HUD_HEIGHT);
     topRatio = 0.5;
   } else {
     baseWidth = Math.min(width * 0.46, height * 0.78, 600);

@@ -5,21 +5,25 @@ const BPM = 120; // 0.5 s per beat
 
 describe('parseStepToken', () => {
   it('parses taps, chords and holds', () => {
-    expect(parseStepToken('2')).toEqual([{ lane: 2, holdSteps: 0 }]);
+    expect(parseStepToken('2')).toEqual([{ lane: 2, holdSteps: 0, kind: 'hold' }]);
     expect(parseStepToken('03')).toEqual([
-      { lane: 0, holdSteps: 0 },
-      { lane: 3, holdSteps: 0 },
+      { lane: 0, holdSteps: 0, kind: 'hold' },
+      { lane: 3, holdSteps: 0, kind: 'hold' },
     ]);
-    expect(parseStepToken('1~8')).toEqual([{ lane: 1, holdSteps: 8 }]);
+    expect(parseStepToken('1~8')).toEqual([{ lane: 1, holdSteps: 8, kind: 'hold' }]);
+    expect(parseStepToken('1^8')).toEqual([{ lane: 1, holdSteps: 8, kind: 'release' }]);
+    expect(parseStepToken('2*6')).toEqual([{ lane: 2, holdSteps: 6, kind: 'roll' }]);
     expect(parseStepToken('0+3~4')).toEqual([
-      { lane: 0, holdSteps: 0 },
-      { lane: 3, holdSteps: 4 },
+      { lane: 0, holdSteps: 0, kind: 'hold' },
+      { lane: 3, holdSteps: 4, kind: 'hold' },
     ]);
   });
   it('rejects garbage and ambiguous holds', () => {
     expect(parseStepToken('x')).toBeNull();
     expect(parseStepToken('12~4')).toBeNull();
     expect(parseStepToken('~4')).toBeNull();
+    expect(parseStepToken('1*')).toBeNull();
+    expect(parseStepToken('1^0')).toBeNull();
   });
 });
 

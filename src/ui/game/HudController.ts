@@ -50,6 +50,9 @@ export class HudController implements GamePresenter {
     s.setProperty('--highway-w', `${l.baseWidth}px`);
     s.setProperty('--lane-w', `${l.laneWidth}px`);
     s.setProperty('--top-y', `${l.topY}px`);
+    s.setProperty('--highway-left', `${l.centerX - l.baseWidth / 2}px`);
+    // Beside the highway when there is room, otherwise below the judge line.
+    this.refs.root.dataset.layout = (l.width - l.baseWidth) / 2 >= 200 ? 'side' : 'bottom';
   }
 
   /**
@@ -121,9 +124,9 @@ export class HudController implements GamePresenter {
       this.pop(
         judgment,
         [
-          { transform: 'translate(-50%, -50%) translateY(-6px) scale(1.15)', opacity: 1 },
-          { transform: 'translate(-50%, -50%) translateY(8px) scale(1)', opacity: 1, offset: 0.6 },
-          { transform: 'translate(-50%, -50%) translateY(14px) scale(0.95)', opacity: 0 },
+          { transform: 'translateY(-6px) scale(1.15)', opacity: 1 },
+          { transform: 'translateY(8px) scale(1)', opacity: 1, offset: 0.6 },
+          { transform: 'translateY(14px) scale(0.95)', opacity: 0 },
         ],
         520,
         'ease-out',
@@ -133,10 +136,10 @@ export class HudController implements GamePresenter {
       this.pop(
         judgment,
         [
-          { transform: `translate(-50%, -50%) scale(${big})`, opacity: 1, filter: 'brightness(2)' },
-          { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, filter: 'brightness(1)', offset: 0.25 },
-          { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.8 },
-          { transform: 'translate(-50%, -50%) scale(0.96)', opacity: 0 },
+          { transform: `scale(${big})`, opacity: 1, filter: 'brightness(2)' },
+          { transform: 'scale(1)', opacity: 1, filter: 'brightness(1)', offset: 0.25 },
+          { transform: 'scale(1)', opacity: 1, offset: 0.8 },
+          { transform: 'scale(0.96)', opacity: 0 },
         ],
         e.judgment === 'perfect' ? 560 : 480,
       );
@@ -184,10 +187,10 @@ export class HudController implements GamePresenter {
     this.pop(
       el,
       [
-        { transform: 'translate(-50%, -50%) scale(2.2)', opacity: 0 },
-        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.2 },
-        { transform: 'translate(-50%, -50%) scale(1.05)', opacity: 1, offset: 0.75, easing: 'ease-in' },
-        { transform: 'translate(-50%, -50%) scale(0.85)', opacity: 0 },
+        { transform: 'scale(2.2)', opacity: 0 },
+        { transform: 'scale(1)', opacity: 1, offset: 0.2 },
+        { transform: 'scale(1.05)', opacity: 1, offset: 0.75, easing: 'ease-in' },
+        { transform: 'scale(0.85)', opacity: 0 },
       ],
       dur,
       'cubic-bezier(.2,.9,.3,1)',
@@ -202,10 +205,10 @@ export class HudController implements GamePresenter {
     this.pop(
       el,
       [
-        { transform: 'translate(-50%, -50%) scaleX(0.2) scaleY(1.6)', opacity: 0, letterSpacing: '0.6em' },
-        { transform: 'translate(-50%, -50%) scale(1.08)', opacity: 1, letterSpacing: '0.06em', offset: 0.15 },
-        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.88 },
-        { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 0 },
+        { transform: 'scaleX(0.2) scaleY(1.6)', opacity: 0, letterSpacing: '0.6em' },
+        { transform: 'scale(1.08)', opacity: 1, letterSpacing: '0.06em', offset: 0.15 },
+        { transform: 'scale(1)', opacity: 1, offset: 0.88 },
+        { transform: 'scale(1.1)', opacity: 0 },
       ],
       2400,
       'cubic-bezier(.2,.9,.3,1)',
@@ -220,10 +223,10 @@ export class HudController implements GamePresenter {
     this.pop(
       el,
       [
-        { transform: 'translate(-50%, -50%) translateX(-40%) skewX(-18deg)', opacity: 0 },
-        { transform: 'translate(-50%, -50%) translateX(0) skewX(-8deg) scale(1.1)', opacity: 1, offset: 0.14 },
-        { transform: 'translate(-50%, -50%) translateX(2%) skewX(-8deg) scale(1)', opacity: 1, offset: 0.8, easing: 'ease-in' },
-        { transform: 'translate(-50%, -50%) translateX(40%) skewX(-18deg)', opacity: 0 },
+        { transform: 'translateX(-40%) skewX(-18deg)', opacity: 0 },
+        { transform: 'translateX(0) skewX(-8deg) scale(1.1)', opacity: 1, offset: 0.14 },
+        { transform: 'translateX(2%) skewX(-8deg) scale(1)', opacity: 1, offset: 0.8, easing: 'ease-in' },
+        { transform: 'translateX(40%) skewX(-18deg)', opacity: 0 },
       ],
       kind === 'fever' ? 1500 : 1100,
       'cubic-bezier(.2,.8,.2,1)',

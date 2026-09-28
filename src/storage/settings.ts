@@ -15,9 +15,12 @@ export interface Settings {
   showFastSlow: boolean;
   lastSongId: string;
   lastDifficulty: string;
-  /** The HOW TO PLAY card has been shown once. */
-  seenTutorial: boolean;
+  /** Version of the HOW TO PLAY card the player has seen (0 = never). */
+  tutorialSeen: number;
 }
+
+/** Bump when the HOW TO PLAY card gains content everyone should see once more. */
+export const TUTORIAL_VERSION = 2;
 
 /** Audio offset range in ms (Bluetooth headphones can need 200+). */
 export const OFFSET_LIMIT_MS = 300;
@@ -45,7 +48,7 @@ export function defaultSettings(): Settings {
     lastSongId: 'midnight-drive',
     // First-time players start on EASY.
     lastDifficulty: 'easy',
-    seenTutorial: false,
+    tutorialSeen: 0,
   };
 }
 
@@ -71,7 +74,8 @@ export function validateSettings(raw: unknown): Settings {
     showFastSlow: bool(raw.showFastSlow, true),
     lastSongId: str(raw.lastSongId, d.lastSongId),
     lastDifficulty: str(raw.lastDifficulty, d.lastDifficulty),
-    seenTutorial: bool(raw.seenTutorial, false),
+    // v1 stored a boolean `seenTutorial`.
+    tutorialSeen: Math.round(num(raw.tutorialSeen, raw.seenTutorial === true ? 1 : 0, 0, 1000)),
   };
 }
 

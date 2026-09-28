@@ -1,6 +1,7 @@
 import { COMBO_MILESTONES } from '../config/combo';
 import { FEVER } from '../config/fever';
-import { computeAccuracy, holdTickScore, scoreForJudgment, SCORING } from '../config/scoring';
+import { hasTail, judgmentUnits, rollTarget } from '../config/noteTypes';
+import { computeAccuracy, holdTickScore, rollHitScore, scoreForJudgment, SCORING } from '../config/scoring';
 import type { Judgment, JudgmentCounts, Note, NoteType } from '../types';
 
 export interface ApplyOutcome {
@@ -108,6 +109,14 @@ export class ScoreSystem {
     return points;
   }
 
+  /** A tap on a roll; only taps up to the bonus cap score. */
+  rollHit(hits: number, target: number): number {
+    if (hits > Math.floor(target * SCORING.rollBonusCap)) return 0;
+    const points = rollHitScore(this.feverActive);
+    this.score += points;
+    return points;
+  }
+
   holdComplete(): void {
     if (!this.feverActive) {
       this.feverGauge = Math.min(1, this.feverGauge + FEVER.holdCompleteWeight * this.feverUnit);
@@ -134,17 +143,26 @@ export function holdTickCount(duration: number, secondsPerBeat: number): number 
 }
 
 export function totalJudgmentsFor(notes: readonly Note[]): number {
-  return notes.reduce((n, note) => n + (note.duration > 0 ? 2 : 1), 0);
+  return notes.reduce((n, note) => n + judgmentUnits(note), 0);
 }
 
 /** Score of a flawless run (all PERFECT, every hold tick), used for rank and score ratio. */
 export function theoreticalMaxScore(notes: readonly Note[], secondsPerBeat: number, feverFill?: number): number {
-  type Ev = { t: number; kind: 'judge' | 'tick' | 'complete'; type: NoteType };
+  type Ev = { t: number; kind: 'judge' | 'tick' | 'complete' | 'rollhit'; type: NoteType; target?: number; hits?: number };
   const events: Ev[] = [];
   const interval = holdTickInterval(secondsPerBeat);
   for (const n of notes) {
+    if (n.type === 'roll') {
+      const target = rollTarget(n, secondsPerBeat);
+      const hits = Math.floor(target * SCORING.rollBonusCap);
+      for (let k = 1; k <= hits; k++) {
+        events.push({ t: n.time + (n.duration * (k - 1)) / hits, kind: 'rollhit', type: n.type, target, hits: k });
+      }
+      events.push({ t: n.time + n.duration, kind: 'judge', type: n.type });
+      continue;
+    }
     events.push({ t: n.time, kind: 'judge', type: n.type });
-    if (n.duration > 0) {
+    if (hasTail(n)) {
       const ticks = holdTickCount(n.duration, secondsPerBeat);
       for (let k = 1; k <= ticks; k++) events.push({ t: n.time + k * interval - 1e-4, kind: 'tick', type: n.type });
       events.push({ t: n.time + n.duration, kind: 'complete', type: n.type });
@@ -155,6 +173,7 @@ export function theoreticalMaxScore(notes: readonly Note[], secondsPerBeat: numb
   for (const e of events) {
     sim.update(e.t);
     if (e.kind === 'tick') sim.holdTick();
+    else if (e.kind === 'rollhit') sim.rollHit(e.hits!, e.target!);
     else {
       sim.apply('perfect', e.type, e.t);
       if (e.kind === 'complete') sim.holdComplete();

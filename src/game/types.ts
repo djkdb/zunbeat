@@ -7,9 +7,13 @@ export type DifficultyId = 'easy' | 'normal' | 'hard' | 'expert';
  * Note types. `mechanic` (see config/noteTypes.ts) decides how a type is played;
  * the type itself decides the look, the sound and bonus scoring.
  */
-export type NoteType = 'tap' | 'hold' | 'double' | 'rapid' | 'burst';
+export type NoteType = 'tap' | 'hold' | 'release' | 'roll' | 'double' | 'rapid' | 'burst';
 
-export type NoteMechanic = 'tap' | 'hold';
+/**
+ * tap: press once · hold: keep pressed until the tail · release: hold, then let go
+ * exactly on the tail (judged) · roll: tap repeatedly while it passes (hit count judged)
+ */
+export type NoteMechanic = 'tap' | 'hold' | 'release' | 'roll';
 
 export interface Note {
   id: number;

@@ -23,7 +23,9 @@ import type { Chart, ChartParseIssue, ChartParseResult, ChartSection, Note, Note
  *   .        rest
  *   2        tap on lane 2 (lanes are 0–3, left to right)
  *   03       lanes 0 and 3 together (DOUBLE)
- *   1~8      hold on lane 1 lasting 8 steps of this measure's resolution
+ *   1~8      HOLD on lane 1 lasting 8 steps of this measure's resolution
+ *   1^8      RELEASE: hold, then let go exactly on the tail (the release is judged)
+ *   1*8      ROLL: tap lane 1 repeatedly for 8 steps (the number of taps is judged)
  *   0+3~4    tap lane 0 and hold lane 3 for 4 steps
  */
 
@@ -36,6 +38,7 @@ interface RawNote {
   beat: number;
   lane: number;
   holdBeats: number;
+  longKind: LongKind;
   section: number;
   line: number;
 }
@@ -88,6 +91,7 @@ export function parseChart(text: string, options: ParseOptions): ChartParseResul
           beat,
           lane: spec.lane,
           holdBeats: spec.holdSteps * stepBeats,
+          longKind: spec.kind,
           section: currentSection(),
           line: lineNo,
         });
@@ -179,20 +183,26 @@ export function parseChart(text: string, options: ParseOptions): ChartParseResul
   return { chart, errors, warnings };
 }
 
+type LongKind = 'hold' | 'release' | 'roll';
+const LONG_SYMBOL: Record<string, LongKind> = { '~': 'hold', '^': 'release', '*': 'roll' };
+
 interface LaneSpec {
   lane: number;
   holdSteps: number;
+  kind: LongKind;
 }
 
 export function parseStepToken(token: string): LaneSpec[] | null {
   const out: LaneSpec[] = [];
   for (const part of token.split('+')) {
-    const m = /^(\d+)(?:~(\d+(?:\.\d+)?))?$/.exec(part);
+    const m = /^(\d+)(?:([~^*])(\d+(?:\.\d+)?))?$/.exec(part);
     if (!m) return null;
     const lanes = m[1];
-    const hold = m[2] ? Number(m[2]) : 0;
+    const hold = m[3] ? Number(m[3]) : 0;
+    if (m[2] && !(hold > 0)) return null;
     if (hold && lanes.length !== 1) return null; // "12~4" is ambiguous; use "1~4+2~4"
-    for (const ch of lanes) out.push({ lane: Number(ch), holdSteps: hold });
+    const kind = LONG_SYMBOL[m[2] ?? '~'];
+    for (const ch of lanes) out.push({ lane: Number(ch), holdSteps: hold, kind });
   }
   return out.length ? out : null;
 }
@@ -256,7 +266,7 @@ function buildNotes(
     const time = toTime(n.beat);
     const chordId = chordOf.get(n) ?? null;
     let type: NoteType = 'tap';
-    if (n.holdBeats > 0) type = 'hold';
+    if (n.holdBeats > 0) type = n.longKind;
     else if (chordId !== null) type = 'double';
     else if (sections[n.section]?.flags.has('burst')) type = 'burst';
     else if (gapAround(time) < RAPID_GAP_SECONDS) type = 'rapid';

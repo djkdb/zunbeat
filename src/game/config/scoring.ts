@@ -23,11 +23,18 @@ export const SCORING = {
   ],
   feverMultiplier: 1.5,
   /** Extra fraction of base awarded for special note types (only on perfect/great). */
-  typeBonus: { tap: 0, hold: 0, double: 0.1, rapid: 0.05, burst: 0.15 } satisfies Record<NoteType, number>,
+  typeBonus: { tap: 0, hold: 0, release: 0.1, roll: 0, double: 0.1, rapid: 0.05, burst: 0.15 } satisfies Record<NoteType, number>,
   /** Points granted per hold tick (every `holdTickBeats` beats held). */
   holdTickPoints: 120,
   holdTickBeats: 0.25,
+  /** Points per tap on a ROLL, counted up to `rollBonusCap` × the roll's target. */
+  rollHitPoints: 150,
+  rollBonusCap: 1.5,
 } as const;
+
+export function rollHitScore(fever: boolean): number {
+  return Math.round(SCORING.rollHitPoints * (fever ? SCORING.feverMultiplier : 1));
+}
 
 export function comboMultiplier(combo: number): number {
   let mult = 1;

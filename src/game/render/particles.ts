@@ -52,9 +52,10 @@ export class ParticleSystem {
         y,
         Math.cos(angle) * v,
         Math.sin(angle) * v,
-        0.35 + Math.random() * 0.45,
-        6 + Math.random() * 12,
+        0.2 + Math.random() * 0.3,
+        5 + Math.random() * 9,
         Math.random() < 0.25 ? '#ffffff' : color,
+        1500,
       );
     }
   }

@@ -2,13 +2,15 @@ import type { AudioManager, MusicHandle } from '../audio/AudioManager';
 import type { CompositionAnalysis } from '../audio/synth/music';
 import { feverFillSize } from '../config/fever';
 import { FAST_SLOW_THRESHOLD, JUDGMENT_WINDOWS } from '../config/judgment';
+import { hasTail, ROLL_HITS_PER_BEAT } from '../config/noteTypes';
 import { computeRank } from '../config/rank';
+import { SCORING } from '../config/scoring';
 import { LANE_COUNT } from '../constants';
 import type { Chart, DifficultyId, Judgment, Note, PlayResult, SongDefinition } from '../types';
 import { GameClock } from './GameClock';
 import { summarizeTiming } from './timing';
 import { InputManager } from './InputManager';
-import { JudgmentSystem, NS, type JudgeEvent } from './JudgmentSystem';
+import { JudgmentSystem, NS, isJudgeEvent, isRollHit, type JudgeEvent, type RollHit } from './JudgmentSystem';
 import {
   ScoreSystem,
   holdTickCount,
@@ -36,6 +38,7 @@ export interface GamePresenter {
   holdTick?(lane: number): void;
   holdComplete?(lane: number): void;
   holdBreak?(lane: number): void;
+  rollHit?(lane: number, hits: number, target: number): void;
   milestone?(combo: number): void;
   feverStart?(): void;
   feverEnd?(): void;
@@ -96,6 +99,7 @@ export class GameEngine {
   sectionIndex = -1;
   /** Song time until which each lane shows as pressed by autoplay. */
   autoPressUntil: number[] = new Array(LANE_COUNT).fill(-Infinity);
+  private autoRollNext: number[] = new Array(LANE_COUNT).fill(0);
   readonly visibleSongEnd: number;
 
   private opts: EngineOptions;
@@ -126,7 +130,7 @@ export class GameEngine {
     this.autoplay = opts.autoplay;
     this.spb = 60 / opts.chart.bpm;
     this.tickInterval = holdTickInterval(this.spb);
-    this.judge = new JudgmentSystem(opts.chart.notes);
+    this.judge = new JudgmentSystem(opts.chart.notes, this.spb);
     const feverFill = feverFillSize(opts.chart);
     this.score = new ScoreSystem(totalJudgmentsFor(opts.chart.notes), this.spb, feverFill);
     this.maxScore = theoreticalMaxScore(opts.chart.notes, this.spb, feverFill);
@@ -300,17 +304,37 @@ export class GameEngine {
 
   private runAutoplay(t: number): void {
     for (let lane = 0; lane < LANE_COUNT; lane++) {
+      // Keep drumming an active roll fast enough to reach the bonus cap.
+      if (this.judge.rolling[lane] >= 0) {
+        if (t >= this.autoRollNext[lane]) {
+          const hit = this.judge.press(lane, t);
+          this.autoRollNext[lane] = t + this.spb / (ROLL_HITS_PER_BEAT * SCORING.rollBonusCap * 1.15);
+          this.autoPressUntil[lane] = t + AUTOPLAY_PRESS_VISUAL;
+          this.emit('lanePress', lane);
+          if (isRollHit(hit)) this.handleRollHit(hit);
+        }
+        continue;
+      }
       const idx = this.judge.nextPending(lane);
       if (idx < 0) continue;
       const note = this.judge.notes[idx];
       if (note.time > t) continue;
-      const ev = this.judge.press(lane, note.time);
-      if (ev && ev !== 'regrab') {
-        this.autoPressUntil[lane] = note.time + Math.max(note.duration, AUTOPLAY_PRESS_VISUAL);
-        this.emit('lanePress', lane);
-        this.handleJudge(ev, t);
+      const result = this.judge.press(lane, note.time);
+      this.emit('lanePress', lane);
+      if (isRollHit(result)) {
+        this.autoPressUntil[lane] = note.time + AUTOPLAY_PRESS_VISUAL;
+        this.autoRollNext[lane] = note.time + this.spb / (ROLL_HITS_PER_BEAT * SCORING.rollBonusCap * 1.15);
+        this.handleRollHit(result);
+      } else if (isJudgeEvent(result)) {
+        this.autoPressUntil[lane] = note.time + Math.max(hasTail(note) ? note.duration : 0, AUTOPLAY_PRESS_VISUAL);
+        this.handleJudge(result, t);
       }
     }
+  }
+
+  private handleRollHit(hit: RollHit): void {
+    this.score.rollHit(hit.hits, hit.target);
+    this.emit('rollHit', hit.lane, hit.hits, hit.target);
   }
 
   laneHeld(lane: number): boolean {
@@ -338,8 +362,9 @@ export class GameEngine {
     const t = this.clock.timeAtEvent(timeStamp);
     this.emit('lanePress', lane);
     if (this.autoplay) return;
-    const ev = this.judge.press(lane, t);
-    if (ev && ev !== 'regrab') this.handleJudge(ev, t);
+    const result = this.judge.press(lane, t);
+    if (isRollHit(result)) this.handleRollHit(result);
+    else if (isJudgeEvent(result)) this.handleJudge(result, t);
   };
 
   private onRelease = (lane: number, timeStamp: number) => {
@@ -356,7 +381,7 @@ export class GameEngine {
   // ------------------------------------------------------------------ judgment → score → presentation
 
   private handleJudge(ev: JudgeEvent, t: number): void {
-    if (!this.autoplay && ev.kind !== 'tail' && Math.abs(ev.offset) <= JUDGMENT_WINDOWS.miss) {
+    if (!this.autoplay && (ev.kind === 'tap' || ev.kind === 'head') && Math.abs(ev.offset) <= JUDGMENT_WINDOWS.miss) {
       this.pressOffsets.push(ev.offset);
     }
     const outcome = this.score.apply(ev.judgment, ev.note.type, t, ev.offset, FAST_SLOW_THRESHOLD);
@@ -478,8 +503,13 @@ export class GameEngine {
       if (best < 0) return;
       const note = this.judge.notes[best];
       this.judge.state[best] = judgment === 'miss' ? NS.missed : note.duration > 0 ? NS.done : NS.hit;
+      if (note.type === 'roll' || hasTail(note)) {
+        // make sure no lane keeps pointing at a force-judged long note
+        if (this.judge.rolling[note.lane] === best) this.judge.rolling[note.lane] = -1;
+        if (this.judge.holding[note.lane] === best) this.judge.holding[note.lane] = -1;
+      }
       this.handleJudge({ noteIndex: best, note, lane: note.lane, judgment, offset: 0, kind: 'tap' }, this.t);
-      if (note.duration > 0) this.score.apply(judgment, note.type, this.t);
+      if (hasTail(note)) this.score.apply(judgment, note.type, this.t);
     },
     finishNow: () => {
       if (this.phase === 'playing' || this.phase === 'countdown') {

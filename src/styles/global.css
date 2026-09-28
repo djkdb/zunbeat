@@ -1174,14 +1174,41 @@ button:disabled {
 }
 
 .hud__combo {
+  /* Bottom layout (phones): below the judge line, never over incoming notes. */
   position: absolute;
   left: 50%;
-  top: calc(var(--judge-y) * 0.36);
-  transform: translate(-50%, -50%);
+  top: calc(var(--judge-y) + (100% - var(--judge-y)) * 0.72);
+  translate: -50% -50%;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
   transition: opacity 0.2s;
+}
+
+/* Side layout (wide screens): a column next to the highway. */
+.hud[data-layout='side'] .hud__combo {
+  left: calc(var(--highway-left) - 36px);
+  top: calc(var(--judge-y) * 0.46);
+  translate: -100% -50%;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.hud[data-layout='side'] .hud__judgment {
+  /* sit below the key labels under the receptors */
+  top: calc(var(--judge-y) + (100% - var(--judge-y)) * 0.56);
+}
+
+.hud[data-layout='side'] .hud__combo-number {
+  font-size: clamp(56px, 7vw, 120px);
+}
+
+.hud[data-layout='side'] .hud__combo-label {
+  font-size: 16px;
+  letter-spacing: 0.5em;
+  margin-right: 0;
 }
 
 .hud__combo[data-visible='false'] {
@@ -1196,7 +1223,7 @@ button:disabled {
   display: block;
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: clamp(56px, calc(var(--lane-w) * 0.95), 124px);
+  font-size: clamp(30px, 9vw, 46px);
   line-height: 1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -1209,9 +1236,9 @@ button:disabled {
 .hud__combo-label {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(12px, calc(var(--lane-w) * 0.16), 18px);
-  letter-spacing: 0.6em;
-  margin-right: -0.6em;
+  font-size: 12px;
+  letter-spacing: 0.4em;
+  margin-right: -0.4em;
   color: var(--dim);
 }
 
@@ -1255,8 +1282,8 @@ button:disabled {
 .hud__judgment {
   position: absolute;
   left: 50%;
-  top: calc(var(--judge-y) * 0.6);
-  transform: translate(-50%, -50%);
+  top: calc(var(--judge-y) + (100% - var(--judge-y)) * 0.3);
+  translate: -50% -50%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1268,7 +1295,7 @@ button:disabled {
   font-family: var(--font-display);
   font-weight: 900;
   font-style: italic;
-  font-size: clamp(26px, calc(var(--highway-w) * 0.095), 58px);
+  font-size: clamp(20px, calc(var(--highway-w) * 0.07), 40px);
   letter-spacing: 0.06em;
 }
 
@@ -1315,7 +1342,7 @@ button:disabled {
   position: absolute;
   left: 50%;
   top: calc(var(--judge-y) * 0.48);
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   opacity: 0;
   font-family: var(--font-display);
   font-weight: 900;
@@ -1346,20 +1373,27 @@ button:disabled {
 .hud__banner {
   position: absolute;
   left: 50%;
-  top: calc(var(--judge-y) * 0.2);
-  transform: translate(-50%, -50%);
+  top: calc(var(--judge-y) + (100% - var(--judge-y)) * 0.68);
+  translate: -50% -50%;
   opacity: 0;
   padding: 6px 28px;
   font-family: var(--font-display);
   font-weight: 900;
   font-style: italic;
-  font-size: clamp(26px, 7vw, 54px);
+  font-size: clamp(18px, 5.4vw, 34px);
   letter-spacing: 0.08em;
   white-space: nowrap;
   color: #07030f;
   background: linear-gradient(100deg, var(--cyan), #fff 50%, var(--cyan));
   box-shadow: 0 0 40px rgba(61, 200, 255, 0.7);
-  mix-blend-mode: screen;
+  z-index: 1;
+}
+
+.hud[data-layout='side'] .hud__banner {
+  left: calc(var(--highway-left) - 36px);
+  top: calc(var(--judge-y) * 0.7);
+  translate: -100% -50%;
+  font-size: clamp(22px, 2.6vw, 38px);
 }
 
 .hud__banner[data-kind='big'] {
@@ -1368,7 +1402,7 @@ button:disabled {
 }
 
 .hud__banner[data-kind='fever'] {
-  font-size: clamp(40px, 12vw, 96px);
+  font-size: clamp(24px, 7vw, 46px);
   background: linear-gradient(100deg, #ffe45c, #ff3d8b, #3dc8ff, #3dffb0);
   background-size: 200% 100%;
   animation: rainbow 0.6s linear infinite;
@@ -1379,7 +1413,7 @@ button:disabled {
   position: absolute;
   left: 50%;
   top: calc(var(--judge-y) * 0.4);
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   opacity: 0;
   font-family: var(--font-display);
   font-weight: 900;
@@ -1706,6 +1740,14 @@ button:disabled {
 
 .howto__tag--hold {
   background: var(--cyan);
+}
+
+.howto__tag--release {
+  background: #b8fff6;
+}
+
+.howto__tag--roll {
+  background: repeating-linear-gradient(135deg, #ffb13d 0 8px, #b86f10 8px 12px);
 }
 
 .howto__tag--double {
@@ -2709,25 +2751,7 @@ button:disabled {
   }
 
   .hud__banner {
-    top: calc(var(--judge-y) * 0.49);
-    font-size: clamp(20px, 6.4vw, 40px);
-    padding: 4px 18px;
-  }
-
-  .hud__banner[data-kind='fever'] {
-    font-size: clamp(32px, 10vw, 60px);
-  }
-
-  .hud__combo {
-    top: max(calc(var(--judge-y) * 0.33), calc(196px + var(--safe-top)));
-  }
-
-  .hud__combo-number {
-    font-size: clamp(48px, calc(var(--lane-w) * 0.8), 104px);
-  }
-
-  .hud__judgment {
-    top: calc(var(--judge-y) * 0.64);
+    padding: 3px 14px;
   }
 
   .title__stats {

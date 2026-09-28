@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { audio } from '../../game/audio/AudioManager';
 import { DEFAULT_KEYS } from '../../game/constants';
-import { NOTE_SPEEDS, OFFSET_LIMIT_MS, keyLabel, type Settings } from '../../storage/settings';
+import { NOTE_SPEEDS, OFFSET_LIMIT_MS, TUTORIAL_VERSION, keyLabel, type Settings } from '../../storage/settings';
 import { useApp } from '../appContext';
 import { CalibrationDialog } from '../components/CalibrationDialog';
 import { MenuBackground } from '../components/MenuBackground';
@@ -192,8 +192,8 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           <h3>HELP</h3>
           <div className="setting">
             <span>HOW TO PLAY</span>
-            <button className="btn btn--ghost btn--small" onClick={() => updateSettings({ seenTutorial: false })}>
-              {settings.seenTutorial ? 'SHOW BEFORE NEXT SONG' : 'WILL SHOW NEXT SONG'}
+            <button className="btn btn--ghost btn--small" onClick={() => updateSettings({ tutorialSeen: 0 })}>
+              {settings.tutorialSeen >= TUTORIAL_VERSION ? 'SHOW BEFORE NEXT SONG' : 'WILL SHOW NEXT SONG'}
             </button>
           </div>
         </section>

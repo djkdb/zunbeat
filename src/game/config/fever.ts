@@ -1,4 +1,5 @@
 import type { Chart, Judgment } from '../types';
+import { hasTail, judgmentUnits } from './noteTypes';
 
 /**
  * FEVER: good judgments charge the gauge; when it is full FEVER starts automatically.
@@ -22,14 +23,15 @@ export const FEVER = {
 
 /** Number of perfect judgments that fill the gauge for a chart. */
 export function feverFillSize(chart: Chart): number {
-  const total = chart.notes.reduce((n, note) => n + (note.duration > 0 ? 2 : 1), 0);
+  const total = chart.notes.reduce((n, note) => n + judgmentUnits(note), 0);
   const peak = chart.sections.find((s) => s.name.startsWith(FEVER.peakPrefix) && s.startBeat > 0);
   if (!peak) return Math.max(20, FEVER.fillFraction * total);
   // Charge a clean run collects before the peak (hold tails count at their end time).
   let before = 0;
   for (const note of chart.notes) {
-    if (note.time < peak.startTime - 1e-6) before += FEVER.weight.perfect;
-    if (note.duration > 0 && note.time + note.duration < peak.startTime - 1e-6) {
+    const judgedAt = note.type === 'roll' ? note.time + note.duration : note.time;
+    if (judgedAt < peak.startTime - 1e-6) before += FEVER.weight.perfect;
+    if (hasTail(note) && note.time + note.duration < peak.startTime - 1e-6) {
       before += FEVER.weight.perfect + FEVER.holdCompleteWeight;
     }
   }

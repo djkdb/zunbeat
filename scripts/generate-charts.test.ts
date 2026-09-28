@@ -33,7 +33,9 @@ it('generate charts', () => {
       writeFileSync(path, text);
       const nps = chart.notes.length / Math.max(1, chart.duration);
       console.log(
-        `${song.id}.${d}: ${chart.notes.length} notes, ${nps.toFixed(2)} nps, holds ${chart.notes.filter((n) => n.duration > 0).length}, ` +
+        `${song.id}.${d}: ${chart.notes.length} notes, ${nps.toFixed(2)} nps, ` +
+          ['hold', 'release', 'roll'].map((k) => `${k} ${chart.notes.filter((n) => n.type === k).length}`).join(', ') +
+          ', ' +
           `errors ${errors.length}, warnings ${warnings.length}`,
       );
     }

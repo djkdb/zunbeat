@@ -8,7 +8,7 @@ export class SoundPresenter implements GamePresenter {
   constructor(private audio: AudioManager) {}
 
   judgment(e: JudgmentPresentation): void {
-    if (e.kind === 'tail') return; // hold ends have their own sounds
+    if (e.kind === 'tail' || (e.kind === 'roll' && e.judgment !== 'miss')) return; // own sounds
     const now = performance.now();
     // Chords trigger several hits in one frame; soften the stack.
     const stacked = now - this.lastHitAt < 8;
@@ -28,6 +28,12 @@ export class SoundPresenter implements GamePresenter {
         this.audio.playSfx('miss', { gain: e.comboBroken ? 0.8 : 0.45 });
         break;
     }
+  }
+
+  rollHit(_lane: number, hits: number, target: number): void {
+    // Pitch climbs as the roll fills up; a chime when the target is reached.
+    this.audio.playSfx('hitGreat', { gain: 0.4, rate: 0.9 + Math.min(1.5, hits / target) * 0.3 });
+    if (hits === target) this.audio.playSfx('holdComplete', { gain: 0.5 });
   }
 
   holdComplete(): void {

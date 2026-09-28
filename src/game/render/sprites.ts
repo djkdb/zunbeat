@@ -41,7 +41,10 @@ export const NOTE_SPRITE_H = 96;
 export const NOTE_BODY = { x: 20, y: 28, w: 216, h: 40 };
 
 /** Note body with bevel, bright core line and outer glow. */
-export function noteSprite(color: string, variant: 'normal' | 'double' | 'rapid' | 'burst' | 'dim'): HTMLCanvasElement {
+export function noteSprite(
+  color: string,
+  variant: 'normal' | 'double' | 'rapid' | 'burst' | 'dim' | 'roll' | 'release',
+): HTMLCanvasElement {
   const key = `${color}|${variant}`;
   let s = noteCache.get(key);
   if (s) return s;
@@ -93,6 +96,27 @@ export function noteSprite(color: string, variant: 'normal' | 'double' | 'rapid'
       ctx.closePath();
       ctx.fill();
     }
+  } else if (variant === 'roll') {
+    // bold hazard stripes = "mash me"
+    ctx.save();
+    roundRect(ctx, x, y, w, h, 10);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(30,15,0,0.55)';
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    for (let sx = x - h; sx < x + w + h; sx += 26) {
+      ctx.moveTo(sx, y + h);
+      ctx.lineTo(sx + h, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  } else if (variant === 'release') {
+    ctx.strokeStyle = 'rgba(255,255,255,1)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 8]);
+    roundRect(ctx, x - 3, y - 3, w + 6, h + 6, 12);
+    ctx.stroke();
+    ctx.setLineDash([]);
   } else if (variant === 'double') {
     ctx.strokeStyle = 'rgba(255,255,255,1)';
     ctx.lineWidth = 4;

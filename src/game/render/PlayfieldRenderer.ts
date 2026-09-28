@@ -50,6 +50,7 @@ export class PlayfieldRenderer implements GamePresenter {
   private bg: Background;
   private particles = new ParticleSystem(720);
   private rings: Ring[] = [];
+  private rollPulse = new Float32Array(LANE_COUNT);
   private laneFlash = new Float32Array(LANE_COUNT);
   private laneFlashColor: string[] = new Array(LANE_COUNT).fill('#ffffff');
   private receptorPulse = new Float32Array(LANE_COUNT);
@@ -103,7 +104,7 @@ export class PlayfieldRenderer implements GamePresenter {
         this.addRing(e.lane, '#ffffff', 1.25, 0.38);
         this.addRing(e.lane, laneColor, 1, 0.3);
         this.flashLane(e.lane, laneColor, 1);
-        this.particles.burst(x, y, Math.round(16 * feverBoost * motion), laneColor, 780);
+        this.particles.burst(x, y, Math.round(12 * feverBoost * motion), laneColor, 430);
         this.screenFlash = Math.max(this.screenFlash, 0.35);
         this.screenFlashColor = e.fever ? hsl(this.feverTime * 240, 100, 70) : '#ffffff';
         break;
@@ -112,13 +113,13 @@ export class PlayfieldRenderer implements GamePresenter {
         this.perfectStreak = 0;
         this.addRing(e.lane, laneColor, 0.95, 0.3);
         this.flashLane(e.lane, laneColor, 0.7);
-        this.particles.burst(x, y, Math.round(9 * feverBoost * motion), mix(laneColor, '#9dff7a', 0.4), 560);
+        this.particles.burst(x, y, Math.round(7 * feverBoost * motion), mix(laneColor, '#9dff7a', 0.4), 360);
         break;
       case 'good':
         this.perfectStreak = 0;
         this.addRing(e.lane, JUDGE_COLOR.good, 0.7, 0.25);
         this.flashLane(e.lane, JUDGE_COLOR.good, 0.4);
-        this.particles.burst(x, y, Math.round(4 * motion), JUDGE_COLOR.good, 380);
+        this.particles.burst(x, y, Math.round(4 * motion), JUDGE_COLOR.good, 280);
         break;
       case 'miss':
         this.perfectStreak = 0;
@@ -146,8 +147,8 @@ export class PlayfieldRenderer implements GamePresenter {
         x + (Math.random() - 0.5) * l.laneWidth * 0.6,
         l.judgeY,
         (Math.random() - 0.5) * 120,
-        -260 - Math.random() * 320,
-        0.35,
+        -120 - Math.random() * 180,
+        0.28,
         5 + Math.random() * 6,
         Math.random() < 0.3 ? '#ffffff' : color,
         300,
@@ -156,11 +157,20 @@ export class PlayfieldRenderer implements GamePresenter {
     this.receptorPulse[lane] = Math.max(this.receptorPulse[lane], 0.6);
   }
 
+  rollHit(lane: number, hits: number, target: number): void {
+    const l = this.layout;
+    this.rollPulse[lane] = 1;
+    this.receptorPulse[lane] = 1;
+    const color = hits >= target ? '#ffe45c' : this.opts.theme.laneColors[lane];
+    this.particles.burst(xAt(l, lane + 0.5, 1), l.judgeY, 3, color, 260);
+    if (hits === target) this.addRing(lane, '#ffe45c', 1.2, 0.35);
+  }
+
   holdComplete(lane: number): void {
     const l = this.layout;
     const color = this.opts.theme.laneColors[lane];
     this.addRing(lane, '#ffffff', 1.5, 0.45);
-    this.particles.burst(xAt(l, lane + 0.5, 1), l.judgeY, 22, color, 900);
+    this.particles.burst(xAt(l, lane + 0.5, 1), l.judgeY, 16, color, 480);
   }
 
   holdBreak(lane: number): void {
@@ -176,7 +186,7 @@ export class PlayfieldRenderer implements GamePresenter {
     const l = this.layout;
     const count = this.opts.reducedMotion ? 16 : Math.round(40 * strength);
     for (let lane = 0; lane < LANE_COUNT; lane++) {
-      this.particles.burst(xAt(l, lane + 0.5, 1), l.judgeY, count / 4, this.opts.theme.laneColors[lane], 1100);
+      this.particles.burst(xAt(l, lane + 0.5, 1), l.judgeY, count / 4, this.opts.theme.laneColors[lane], 520);
     }
     this.zoomPunch = this.opts.reducedMotion ? 0 : 0.6 * strength;
   }
@@ -257,10 +267,15 @@ export class PlayfieldRenderer implements GamePresenter {
       }
     }
 
+    // Flashes and FEVER tint live *behind* the highway so they never cover notes.
+    this.drawBackdropFx(engine);
     this.drawHighway(engine, t);
+    this.drawReceptors(engine);
+    this.drawEffects();
+    this.drawJudgeGlow(engine);
+    // Notes are drawn after every effect: what you have to hit is always on top.
     this.drawNotes(engine, t);
     this.drawJudgeLine(engine);
-    this.drawEffects();
     ctx.restore();
     this.drawOverlays(engine);
   }
@@ -269,6 +284,7 @@ export class PlayfieldRenderer implements GamePresenter {
     for (let i = 0; i < LANE_COUNT; i++) {
       this.laneFlash[i] = Math.max(0, this.laneFlash[i] - dt * 4.5);
       this.receptorPulse[i] = Math.max(0, this.receptorPulse[i] - dt * 6);
+      this.rollPulse[i] = Math.max(0, this.rollPulse[i] - dt * 8);
     }
     this.screenFlash = Math.max(0, this.screenFlash - dt * 5);
     this.missFlash = Math.max(0, this.missFlash - dt * 3.2);
@@ -303,8 +319,8 @@ export class PlayfieldRenderer implements GamePresenter {
     ctx.lineTo(xAt(l, 0, sBot), yBot);
     ctx.closePath();
     const floor = ctx.createLinearGradient(0, yTop, 0, yBot);
-    floor.addColorStop(0, 'rgba(6,4,14,0.35)');
-    floor.addColorStop(0.35, 'rgba(6,4,14,0.82)');
+    floor.addColorStop(0, 'rgba(6,4,14,0.62)');
+    floor.addColorStop(0.3, 'rgba(6,4,14,0.86)');
     floor.addColorStop(1, 'rgba(4,2,10,0.94)');
     ctx.fillStyle = floor;
     ctx.fill();
@@ -448,12 +464,16 @@ export class PlayfieldRenderer implements GamePresenter {
       const dim = st === NS.missed || st === NS.broken;
       if (note.duration > 0) {
         const zTail = (note.time + note.duration - t) / win;
-        const holding = st === NS.holding;
-        const released = holding && !Number.isNaN(engine.judge.releasedAt[i]);
-        const from = holding ? 0 : st === NS.broken ? Math.max(zHead, -0.2) : zHead;
-        this.drawHoldBody(note.lane, from, Math.min(zTail, 1.02), color, dim, holding && !released, t);
-        if (zTail <= 1 && zTail > -0.3) this.drawNote(note.lane, zTail, color, 'tail', dim);
-        if (!holding && st !== NS.broken) this.drawNote(note.lane, zHead, color, 'normal', dim);
+        const style = note.type === 'roll' ? 'roll' : note.type === 'release' ? 'release' : 'hold';
+        const active = st === NS.holding || st === NS.rolling;
+        const released = st === NS.holding && !Number.isNaN(engine.judge.releasedAt[i]);
+        const from = active ? 0 : st === NS.broken ? Math.max(zHead, -0.2) : zHead;
+        this.drawHoldBody(note.lane, from, Math.min(zTail, 1.02), color, dim, active && !released, t, style);
+        if (zTail <= 1 && zTail > -0.3) {
+          this.drawNote(note.lane, zTail, color, style === 'release' ? 'releaseTail' : style === 'roll' ? 'rollEnd' : 'tail', dim);
+        }
+        if (!active && st !== NS.broken) this.drawNote(note.lane, zHead, color, style === 'roll' ? 'roll' : 'normal', dim);
+        if (st === NS.rolling) this.drawRollCounter(note.lane, engine.judge.rollHits[i], engine.judge.rollTargetOf(i), color);
       } else {
         if (zHead < -0.35) continue;
         const variant = note.type === 'double' ? 'double' : note.type === 'rapid' ? 'rapid' : note.type === 'burst' ? 'burst' : 'normal';
@@ -466,7 +486,7 @@ export class PlayfieldRenderer implements GamePresenter {
     lane: number,
     z: number,
     color: string,
-    variant: 'normal' | 'double' | 'rapid' | 'burst' | 'tail',
+    variant: 'normal' | 'double' | 'rapid' | 'burst' | 'tail' | 'releaseTail' | 'roll' | 'rollEnd',
     dim: boolean,
     thickness = 1,
   ): void {
@@ -475,17 +495,60 @@ export class PlayfieldRenderer implements GamePresenter {
     const s = scaleAt(l, z);
     const y = yAt(l, z);
     const x = xAt(l, lane + 0.5, s);
-    const w = l.laneWidth * s * (variant === 'tail' ? 0.7 : 0.92);
-    const h = l.noteHeight * s * (variant === 'tail' ? 0.55 : thickness);
-    const sprite = noteSprite(color, dim ? 'dim' : variant === 'tail' ? 'normal' : variant);
+    const small = variant === 'tail' || variant === 'rollEnd';
+    const w = l.laneWidth * s * (small ? 0.7 : variant === 'releaseTail' ? 0.86 : 0.92);
+    const h = l.noteHeight * s * (small ? 0.55 : variant === 'releaseTail' ? 0.8 : thickness);
+    const spriteVariant =
+      variant === 'tail' || variant === 'rollEnd' ? 'normal' : variant === 'releaseTail' ? 'release' : variant;
+    const sprite = noteSprite(color, dim ? 'dim' : spriteVariant);
     const kx = w / NOTE_BODY.w;
     const ky = h / NOTE_BODY.h;
-    this.ctx.globalAlpha = fadeIn(z) * (dim ? 0.55 : 1);
-    this.ctx.drawImage(sprite, x - w / 2 - NOTE_BODY.x * kx, y - h / 2 - NOTE_BODY.y * ky, NOTE_SPRITE_W * kx, NOTE_SPRITE_H * ky);
-    this.ctx.globalAlpha = 1;
+    const ctx = this.ctx;
+    ctx.globalAlpha = fadeIn(z) * (dim ? 0.55 : 1);
+    ctx.drawImage(sprite, x - w / 2 - NOTE_BODY.x * kx, y - h / 2 - NOTE_BODY.y * ky, NOTE_SPRITE_W * kx, NOTE_SPRITE_H * ky);
+    if (variant === 'releaseTail' && !dim) {
+      // "let go here" arrow above the tail
+      const a = Math.max(6, l.laneWidth * s * 0.16);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(x, y - h / 2 - a * 1.5);
+      ctx.lineTo(x + a, y - h / 2 - a * 0.3);
+      ctx.lineTo(x - a, y - h / 2 - a * 0.3);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
 
-  private drawHoldBody(lane: number, z0: number, z1: number, color: string, dim: boolean, active: boolean, t: number): void {
+  /** Tap counter on an active roll, just above its receptor. */
+  private drawRollCounter(lane: number, hits: number, target: number, color: string): void {
+    const ctx = this.ctx;
+    const l = this.layout;
+    const x = xAt(l, lane + 0.5, 1);
+    const y = l.judgeY - l.noteHeight * 1.5;
+    const done = hits >= target;
+    const size = Math.round(Math.max(14, l.noteHeight * (0.8 + this.rollPulse[lane] * 0.25)));
+    ctx.font = `900 ${size}px "Orbitron", "Chakra Petch", system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    const text = done ? `${hits}!` : `${hits}/${target}`;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = done ? '#ffe45c' : color;
+    ctx.fillText(text, x, y);
+  }
+
+  private drawHoldBody(
+    lane: number,
+    z0: number,
+    z1: number,
+    color: string,
+    dim: boolean,
+    active: boolean,
+    t: number,
+    style: 'hold' | 'release' | 'roll' = 'hold',
+  ): void {
     if (z1 <= z0) return;
     const ctx = this.ctx;
     const l = this.layout;
@@ -493,7 +556,7 @@ export class PlayfieldRenderer implements GamePresenter {
     const s1 = scaleAt(l, z1);
     const y0 = yAt(l, z0);
     const y1 = yAt(l, z1);
-    const inset = 0.2;
+    const inset = style === 'roll' ? 0.1 : 0.16;
     ctx.beginPath();
     ctx.moveTo(xAt(l, lane + inset, s0), y0);
     ctx.lineTo(xAt(l, lane + 1 - inset, s0), y0);
@@ -501,11 +564,31 @@ export class PlayfieldRenderer implements GamePresenter {
     ctx.lineTo(xAt(l, lane + inset, s1), y1);
     ctx.closePath();
     const base = dim ? '#50505e' : color;
+    const pulse = style === 'roll' ? this.rollPulse[lane] : 0;
     const g = ctx.createLinearGradient(0, y0, 0, y1);
-    g.addColorStop(0, withAlpha(base, active ? 0.85 : 0.5));
-    g.addColorStop(1, withAlpha(base, active ? 0.35 : 0.2));
+    g.addColorStop(0, withAlpha(base, Math.min(1, (active ? 0.85 : 0.55) + pulse * 0.3)));
+    g.addColorStop(1, withAlpha(base, active ? 0.4 : 0.25));
     ctx.fillStyle = g;
     ctx.fill();
+    if (style === 'roll' && !dim) {
+      // hazard stripes scrolling toward the line: "tap tap tap"
+      ctx.save();
+      ctx.clip();
+      ctx.strokeStyle = `rgba(20,10,0,${0.35 + pulse * 0.2})`;
+      ctx.lineWidth = Math.max(3, l.laneWidth * 0.08);
+      const step = l.laneWidth * 0.32;
+      const shift = ((t * 3) % 1) * step;
+      const left = xAt(l, lane, Math.max(s0, s1)) - step * 2;
+      const right = xAt(l, lane + 1, Math.max(s0, s1)) + step * 2;
+      ctx.beginPath();
+      for (let y = y1 - step * 2 + shift; y < y0 + step * 2; y += step) {
+        ctx.moveTo(left, y + (right - left) * 0.35);
+        ctx.lineTo(right, y - (right - left) * 0.35);
+      }
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
     // core line
     ctx.strokeStyle = dim ? 'rgba(255,255,255,0.12)' : `rgba(255,255,255,${active ? 0.9 : 0.4})`;
     ctx.lineWidth = active ? 3 : 1.5;
@@ -529,16 +612,10 @@ export class PlayfieldRenderer implements GamePresenter {
     }
   }
 
-  private drawJudgeLine(engine: GameEngine): void {
+  private drawReceptors(engine: GameEngine): void {
     const ctx = this.ctx;
     const l = this.layout;
     const y = l.judgeY;
-    const x0 = xAt(l, 0, 1);
-    const x1 = xAt(l, LANE_COUNT, 1);
-    const fever = engine.score.feverActive;
-    const streakGlow = Math.min(1, this.perfectStreak / 30);
-
-    // receptors
     for (let lane = 0; lane < LANE_COUNT; lane++) {
       const color = this.opts.theme.laneColors[lane];
       const held = engine.laneHeld(lane);
@@ -546,7 +623,7 @@ export class PlayfieldRenderer implements GamePresenter {
       const cx = xAt(l, lane + 0.5, 1);
       const w = l.laneWidth * 0.86;
       const h = l.noteHeight * 1.25;
-      ctx.fillStyle = held ? withAlpha(color, 0.45 + pulse * 0.3) : 'rgba(10,8,22,0.75)';
+      ctx.fillStyle = held ? withAlpha(color, 0.35 + pulse * 0.25) : 'rgba(10,8,22,0.55)';
       roundRect(ctx, cx - w / 2, y - h / 2, w, h, 8);
       ctx.fill();
       ctx.strokeStyle = held ? '#ffffff' : withAlpha(color, 0.55 + pulse * 0.4);
@@ -555,7 +632,7 @@ export class PlayfieldRenderer implements GamePresenter {
       const hint = this.opts.keyLabels[lane] ?? (this.opts.touchHints && engine.phase === 'countdown' ? 'TAP' : '');
       if (hint) {
         const blink = this.opts.keyLabels[lane] ? 1 : 0.55 + 0.45 * Math.sin(engine.t * 8);
-        // Below the receptor so the judge line never strikes through the label.
+        // Below the receptor, outside the note path and away from the judge line.
         const size = Math.round(Math.max(11, l.noteHeight * 0.55));
         ctx.fillStyle = `rgba(255,255,255,${(held ? 0.95 : 0.6) * blink})`;
         ctx.font = `700 ${size}px "Chakra Petch", "Rajdhani", system-ui, sans-serif`;
@@ -564,19 +641,36 @@ export class PlayfieldRenderer implements GamePresenter {
         ctx.fillText(hint, cx, y + h / 2 + 6);
       }
     }
+  }
 
-    // line
+  /** Soft glow band on the judge line, drawn under the notes. */
+  private drawJudgeGlow(engine: GameEngine): void {
+    const ctx = this.ctx;
+    const l = this.layout;
+    const x0 = xAt(l, 0, 1);
+    const x1 = xAt(l, LANE_COUNT, 1);
+    const fever = engine.score.feverActive;
+    const streakGlow = Math.min(1, this.perfectStreak / 30);
+    const intensity = 0.5 + engine.beatPulse * 0.3 + streakGlow * 0.45 + (fever ? 0.25 : 0);
     ctx.globalCompositeOperation = 'lighter';
-    const lineColor = fever ? hsl(this.feverHue(), 100, 70) : '#ffffff';
-    const glowColor = fever ? '#ff4fd8' : this.opts.theme.accent;
-    const intensity = 0.55 + engine.beatPulse * 0.35 + streakGlow * 0.5 + (fever ? 0.3 : 0);
-    ctx.globalAlpha = Math.min(1, intensity * 0.7);
-    const gh = 40 + streakGlow * 40;
-    ctx.drawImage(glowSprite(glowColor), x0 - 40, y - gh / 2, x1 - x0 + 80, gh);
+    ctx.globalAlpha = Math.min(1, intensity * 0.6);
+    const gh = 32 + streakGlow * 30;
+    ctx.drawImage(glowSprite(fever ? '#ff4fd8' : this.opts.theme.accent), x0 - 30, l.judgeY - gh / 2, x1 - x0 + 60, gh);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = lineColor;
-    ctx.fillRect(x0, y - 1.5 - streakGlow, x1 - x0, 3 + streakGlow * 2);
     ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /** The crisp judge line itself — thin, so notes crossing it stay readable. */
+  private drawJudgeLine(engine: GameEngine): void {
+    const ctx = this.ctx;
+    const l = this.layout;
+    const x0 = xAt(l, 0, 1);
+    const x1 = xAt(l, LANE_COUNT, 1);
+    const streakGlow = Math.min(1, this.perfectStreak / 30);
+    ctx.fillStyle = engine.score.feverActive ? hsl(this.feverHue(), 100, 75) : '#ffffff';
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(x0, l.judgeY - 1 - streakGlow * 0.5, x1 - x0, 2 + streakGlow);
+    ctx.globalAlpha = 1;
   }
 
   private drawEffects(): void {
@@ -615,24 +709,18 @@ export class PlayfieldRenderer implements GamePresenter {
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  private drawOverlays(engine: GameEngine): void {
+  /** Screen flash, drop flash and FEVER tint: drawn behind the highway. */
+  private drawBackdropFx(engine: GameEngine): void {
     const ctx = this.ctx;
     const l = this.layout;
     const reduced = this.opts.reducedMotion;
     if (!reduced && (this.screenFlash > 0 || this.dropFlash > 0)) {
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = this.screenFlash * 0.07 + this.dropFlash * this.dropFlash * 0.35;
+      ctx.globalAlpha = this.screenFlash * 0.12 + this.dropFlash * this.dropFlash * 0.45;
       ctx.fillStyle = this.dropFlash > this.screenFlash ? '#ffffff' : this.screenFlashColor;
       ctx.fillRect(0, 0, l.width, l.height);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
-    }
-    if (this.missFlash > 0) {
-      const g = ctx.createRadialGradient(l.centerX, l.height / 2, Math.min(l.width, l.height) * 0.3, l.centerX, l.height / 2, Math.max(l.width, l.height) * 0.75);
-      g.addColorStop(0, 'rgba(255,20,60,0)');
-      g.addColorStop(1, `rgba(255,20,60,${this.missFlash * (reduced ? 0.25 : 0.5)})`);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, l.width, l.height);
     }
     if (engine.score.feverActive) {
       const a = 0.18 + engine.beatPulse * 0.22;
@@ -644,6 +732,19 @@ export class PlayfieldRenderer implements GamePresenter {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, l.width, l.height);
       ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  private drawOverlays(engine: GameEngine): void {
+    const ctx = this.ctx;
+    const l = this.layout;
+    if (this.missFlash > 0) {
+      // Edges only, and brief: a MISS should be felt without hiding the next notes.
+      const g = ctx.createRadialGradient(l.centerX, l.height / 2, Math.min(l.width, l.height) * 0.45, l.centerX, l.height / 2, Math.max(l.width, l.height) * 0.75);
+      g.addColorStop(0, 'rgba(255,20,60,0)');
+      g.addColorStop(1, `rgba(255,20,60,${this.missFlash * (this.opts.reducedMotion ? 0.18 : 0.32)})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, l.width, l.height);
     }
     if (engine.phase === 'paused') {
       ctx.fillStyle = 'rgba(3,2,8,0.55)';

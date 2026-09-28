@@ -29,15 +29,25 @@ interface StepInfo {
   roll: boolean;
   lead: { midi: number; len: number } | null;
   arp: number | null;
-  bass: boolean;
+  /** Length in steps of a bass note starting here (0 = none). */
+  bass: number;
 }
+
+type PickKind = 'tap' | 'hold' | 'release' | 'roll';
+const KIND_SYMBOL: Record<Exclude<PickKind, 'tap'>, string> = { hold: '~', release: '^', roll: '*' };
 
 interface Picked {
   step: number;
   lanes: number[];
-  hold: number; // steps (0 = tap), applies to lanes[0]
+  hold: number; // length in steps (0 = tap), applies to lanes[0]
+  kind: PickKind;
   midi: number | null;
 }
+
+/** Every Nth hold becomes a RELEASE (0 = never). */
+const RELEASE_EVERY: Record<GenDifficulty, number> = { easy: 4, normal: 3, hard: 2 };
+/** Long "pad holds" on calm, lead-less bars, in steps. */
+const PAD_HOLD: Record<GenDifficulty, number> = { easy: 12, normal: 8, hard: 8 };
 
 interface Profile {
   /** Allowed grid (step % grid === 0). */
@@ -65,7 +75,7 @@ function profileFor(d: GenDifficulty, bpm: number, s: SectionDef, burstBar: bool
       jackLimit: 16,
       maxPerBar: e >= 0.7 ? 4 : 2,
       threshold: hasDrums ? 2 : 0.9,
-      holdMin: 8,
+      holdMin: 4,
       holdOverlap: false,
     };
   }
@@ -76,7 +86,7 @@ function profileFor(d: GenDifficulty, bpm: number, s: SectionDef, burstBar: bool
       jackLimit: 4,
       maxPerBar: Math.round((e >= 0.9 ? 8 : e >= 0.6 ? 6 : 4) * tempo),
       threshold: e >= 0.6 ? 1.9 : 1.4,
-      holdMin: 6,
+      holdMin: 3,
       holdOverlap: false,
     };
   }
@@ -86,7 +96,7 @@ function profileFor(d: GenDifficulty, bpm: number, s: SectionDef, burstBar: bool
     jackLimit: 3,
     maxPerBar: burstBar ? 16 : Math.round((e >= 0.9 ? 11 : e >= 0.6 ? 9 : 6) * tempo),
     threshold: burstBar ? 0.25 : e >= 0.6 ? 0.9 : 1.4,
-    holdMin: 5,
+    holdMin: 3,
     holdOverlap: true,
   };
 }
@@ -110,7 +120,7 @@ function analyzeSection(s: SectionDef): StepInfo[] {
   const chordAt = chordLookup(s);
   const lead = new Map(s.lead ? expandMelodic(s.lead, steps, chordAt, 'lead').map((e) => [e.step, e]) : []);
   const arp = new Map(s.arp ? expandMelodic(s.arp, steps, chordAt, 'arp').map((e) => [e.step, e.midi]) : []);
-  const bass = new Set(s.bass ? expandMelodic(s.bass, steps, chordAt, 'bass').map((e) => e.step) : []);
+  const bass = new Map(s.bass ? expandMelodic(s.bass, steps, chordAt, 'bass').map((e) => [e.step, e.lengthSteps]) : []);
   return Array.from({ length: steps }, (_, i) => {
     const l = lead.get(i);
     return {
@@ -120,7 +130,7 @@ function analyzeSection(s: SectionDef): StepInfo[] {
       roll: roll.has(i),
       lead: l ? { midi: l.midi, len: l.lengthSteps } : null,
       arp: arp.get(i) ?? null,
-      bass: bass.has(i),
+      bass: bass.get(i) ?? 0,
     };
   });
 }
@@ -162,6 +172,7 @@ export function generateChart(comp: Composition, options: GenerateOptions): stri
   const laneLastStep = new Array<number>(LANE_COUNT).fill(-Infinity);
   const laneBusyUntil = new Array<number>(LANE_COUNT).fill(-Infinity);
   let patternPos = 0;
+  let holdCount = 0;
 
   for (const s of comp.sections) {
     const isDrop = s.name.startsWith('drop');
@@ -198,16 +209,41 @@ export function generateChart(comp: Composition, options: GenerateOptions): stri
       chosen.sort((a, b) => a - b);
 
       let holdEnd = -Infinity;
+      const calmPadBar = !s.lead && s.pad && s.energy < 0.55 && bar % 2 === 0;
       for (const step of chosen) {
         if (!prof.holdOverlap && step < holdEnd) continue;
         const inf = info[step];
         let hold = 0;
-        if (inf.lead && inf.lead.len >= prof.holdMin && (d !== 'easy' || s.energy < 0.6)) {
-          hold = Math.max(2, inf.lead.len - 2);
-          holdEnd = step + hold + 2;
+        if (inf.lead && inf.lead.len >= prof.holdMin) {
+          // Long melody notes become holds ("keep it pressed").
+          hold = Math.max(2, inf.lead.len - 1);
+        } else if (d !== 'easy' && inf.bass >= 3 && step % 4 === 0) {
+          // Sustained bass on a beat: hold it.
+          hold = Math.max(2, inf.bass - 1);
+        } else if (calmPadBar && step % STEPS_PER_BAR === 0) {
+          // Calm bars: a long hold on the chord change.
+          hold = PAD_HOLD[d];
         }
-        picked.push({ step, lanes: [], hold, midi: inf.lead?.midi ?? null });
+        let kind: PickKind = hold > 0 ? 'hold' : 'tap';
+        if (hold > 0) {
+          holdEnd = step + hold + 2;
+          holdCount++;
+          if (RELEASE_EVERY[d] && holdCount % RELEASE_EVERY[d] === 0) kind = 'release';
+        }
+        picked.push({ step, lanes: [], hold, kind, midi: inf.lead?.midi ?? null });
       }
+    }
+
+    // ---- ROLL on the last bar of every snare-roll build-up
+    if (s.roll && s.bars >= 1) {
+      const start = (s.bars - 1) * STEPS_PER_BAR;
+      const len = d === 'easy' ? 12 : 14;
+      for (let i = picked.length - 1; i >= 0; i--) {
+        const st = picked[i].step;
+        if (st >= start - 2 || st + picked[i].hold + 2 > start) picked.splice(i, 1);
+      }
+      picked.push({ step: start, lanes: [], hold: len, kind: 'roll', midi: null });
+      picked.sort((a, b) => a.step - b.step);
     }
 
     // ---- lanes
@@ -280,8 +316,8 @@ function renderBars(picked: Picked[], bars: number): string[] {
     for (const n of notes) {
       const idx = (n.step % STEPS_PER_BAR) / div;
       const [first, ...rest] = n.lanes;
-      if (n.hold > 0) {
-        tokens[idx] = [`${first}~${n.hold / div}`, ...rest.map(String)].join('+');
+      if (n.hold > 0 && n.kind !== 'tap') {
+        tokens[idx] = [`${first}${KIND_SYMBOL[n.kind]}${n.hold / div}`, ...rest.map(String)].join('+');
       } else {
         tokens[idx] = [...n.lanes].sort((a, b) => a - b).join('');
       }

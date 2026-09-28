@@ -40,6 +40,14 @@ export function HowToPlay({ keys, touch, onStart }: Props) {
             <span>keep {touch ? 'your finger down' : 'the key down'} until the tail passes</span>
           </li>
           <li>
+            <b className="howto__tag howto__tag--release">RELEASE</b>
+            <span>hold, then let go right on the arrow — the release is judged</span>
+          </li>
+          <li>
+            <b className="howto__tag howto__tag--roll">ROLL</b>
+            <span>striped bar: {touch ? 'tap' : 'hit the key'} again and again until it ends</span>
+          </li>
+          <li>
             <b className="howto__tag howto__tag--double">DOUBLE</b>
             <span>two linked notes — hit both together</span>
           </li>

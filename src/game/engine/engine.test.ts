@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { parseChart } from '../chart/chartParser';
 import { feverFillSize } from '../config/fever';
+import { hasTail } from '../config/noteTypes';
 import { JUDGMENT_WINDOWS, judgeOffset } from '../config/judgment';
 import { computeRank } from '../config/rank';
 import { computeAccuracy, comboMultiplier } from '../config/scoring';
 import { SONGS, availableDifficulties, loadChart } from '../songs';
-import { JudgmentSystem, NS } from './JudgmentSystem';
+import { JudgmentSystem, NS, isJudgeEvent, isRollHit, rollJudgment } from './JudgmentSystem';
 import { ScoreSystem, theoreticalMaxScore, totalJudgmentsFor } from './ScoreSystem';
 import { suggestedOffset, summarizeTiming } from './timing';
 
@@ -27,9 +28,9 @@ describe('JudgmentSystem', () => {
     const j = new JudgmentSystem(chart('0 . 0 .'));
     expect(j.press(0, -0.5)).toBeNull();
     const hit = j.press(0, 0.02);
-    expect(hit && hit !== 'regrab' && hit.judgment).toBe('perfect');
+    expect(isJudgeEvent(hit) && hit.judgment).toBe('perfect');
     const second = j.press(0, 1.0 - 0.07);
-    expect(second && second !== 'regrab' && second.judgment).toBe('great');
+    expect(isJudgeEvent(second) && second.judgment).toBe('great');
   });
 
   it('auto-misses notes that pass the window', () => {
@@ -42,7 +43,7 @@ describe('JudgmentSystem', () => {
   it('completes a hold kept down to the tail', () => {
     const j = new JudgmentSystem(chart('0~2 . . .')); // 1 s hold
     const head = j.press(0, 0);
-    expect(head && head !== 'regrab' && head.kind).toBe('head');
+    expect(isJudgeEvent(head) && head.kind).toBe('head');
     expect(j.state[0]).toBe(NS.holding);
     const events = j.update(1.01, () => true);
     expect(events.map((e) => [e.kind, e.judgment])).toEqual([['tail', 'perfect']]);
@@ -72,6 +73,70 @@ describe('JudgmentSystem', () => {
     j.press(0, 0);
     const tail = j.release(0, 0.95);
     expect(tail?.judgment).toBe('perfect');
+  });
+});
+
+describe('RELEASE notes', () => {
+  // 120 BPM: `0^2 . . .` = release hold of 1 s on lane 0
+  const rel = () => new JudgmentSystem(chart('0^2 . . .'), 0.5);
+
+  it('parses as a RELEASE with a tail', () => {
+    const n = chart('0^2 . . .')[0];
+    expect(n.type).toBe('release');
+    expect(n.duration).toBeCloseTo(1);
+  });
+
+  it('judges the release timing against the tail', () => {
+    const j = rel();
+    j.press(0, 0);
+    const perfect = j.release(0, 1.02);
+    expect(perfect?.judgment).toBe('perfect');
+    const j2 = rel();
+    j2.press(0, 0);
+    expect(j2.release(0, 1 - 0.07)?.judgment).toBe('great');
+    const j3 = rel();
+    j3.press(0, 0);
+    expect(j3.release(0, 1 + 0.12)?.judgment).toBe('good');
+  });
+
+  it('breaks when let go far too early, and gives GOOD when held far too long', () => {
+    const j = rel();
+    j.press(0, 0);
+    expect(j.release(0, 0.4)).toBeNull();
+    expect(j.update(0.6, () => false).map((e) => e.judgment)).toEqual(['miss']);
+    const j2 = rel();
+    j2.press(0, 0);
+    expect(j2.update(1.2, () => true).map((e) => [e.kind, e.judgment])).toEqual([['tail', 'good']]);
+  });
+});
+
+describe('ROLL notes', () => {
+  // 120 BPM: `1*2 . . .` = 2-beat roll (1 s) → target 4 taps
+  const roll = () => new JudgmentSystem(chart('1*2 . . .'), 0.5);
+
+  it('counts taps and judges by the target', () => {
+    const j = roll();
+    expect(j.rollTargetOf(0)).toBe(4);
+    for (let i = 0; i < 4; i++) {
+      const r = j.press(1, i * 0.2);
+      expect(isRollHit(r) && r.hits).toBe(i + 1);
+    }
+    const ev = j.update(1.1, () => false);
+    expect(ev.map((e) => [e.kind, e.judgment])).toEqual([['roll', 'perfect']]);
+    expect(j.state[0]).toBe(NS.done);
+  });
+
+  it('grades partial rolls and misses untouched ones', () => {
+    expect(rollJudgment(3, 4)).toBe('great');
+    expect(rollJudgment(2, 4)).toBe('good');
+    expect(rollJudgment(1, 4)).toBe('miss');
+    const j = roll();
+    expect(j.update(1.1, () => false).map((e) => e.judgment)).toEqual(['miss']);
+  });
+
+  it('ignores taps that come too early', () => {
+    const j = roll();
+    expect(j.press(1, -0.5)).toBeNull();
   });
 });
 
@@ -118,7 +183,7 @@ describe('ScoreSystem', () => {
     const notes = loadChart(song, 'normal')!.chart.notes;
     const max = theoreticalMaxScore(notes, 60 / song.bpm);
     expect(max).toBeGreaterThan(1_000_000);
-    expect(totalJudgmentsFor(notes)).toBe(notes.length + notes.filter((n) => n.duration > 0).length);
+    expect(totalJudgmentsFor(notes)).toBe(notes.length + notes.filter((n) => hasTail(n)).length);
   });
 });
 
@@ -139,11 +204,20 @@ describe('FEVER placement in real charts', () => {
         const { chart } = loadChart(song, d)!;
         const spb = 60 / song.bpm;
         const s = new ScoreSystem(totalJudgmentsFor(chart.notes), spb, feverFillSize(chart));
+        // Judgments in the order the engine makes them: heads, tails (+ hold bonus), roll ends.
+        const events = chart.notes.flatMap((n) => {
+          if (n.type === 'roll') return [{ t: n.time + n.duration, n, tail: false }];
+          const head = { t: n.time, n, tail: false };
+          return hasTail(n) ? [head, { t: n.time + n.duration, n, tail: true }] : [head];
+        });
+        events.sort((a, b) => a.t - b.t);
         let at: number | null = null;
-        for (const n of chart.notes) {
-          s.update(n.time);
-          if (s.apply('perfect', n.type, n.time).feverStarted) {
-            at = n.beat;
+        for (const e of events) {
+          s.update(e.t);
+          const started = s.apply('perfect', e.n.type, e.t).feverStarted;
+          if (e.tail) s.holdComplete();
+          if (started) {
+            at = e.t / spb;
             break;
           }
         }

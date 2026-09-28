@@ -44,7 +44,7 @@ export const lofiMoonrise: SongDefinition = {
     sections: [
       { name: 'intro', bars: 4, energy: 0.2, tone: 0.4, chords: CHORDS, pad: true, arp: ARP, arpGain: 0.8 },
       { name: 'verse', bars: 4, energy: 0.45, tone: 0.6, chords: CHORDS, pad: true, kick: BREAK_KICK, snare: BACKBEAT, hat: HAT_8, bass: BASS, arp: ARP },
-      { name: 'build', bars: 2, energy: 0.6, tone: 0.7, chords: CHORDS, pad: true, kick: BREAK_KICK, snare: BACKBEAT, hat: HAT_8, arp: ARP, riser: true },
+      { name: 'build', bars: 2, energy: 0.6, tone: 0.7, chords: CHORDS, pad: true, kick: BREAK_KICK, snare: BACKBEAT, hat: HAT_8, arp: ARP, riser: true, roll: true },
       {
         name: 'drop', bars: 8, energy: 0.9, tone: 0.8, chords: CHORDS, pad: true, crash: true,
         kick: BREAK_KICK, snare: BACKBEAT, hat: HAT_8, bass: BASS, lead: LEAD, arp: ARP, arpGain: 0.5,
