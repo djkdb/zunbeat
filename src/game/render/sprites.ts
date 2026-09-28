@@ -139,3 +139,17 @@ export function mix(a: string, b: string, t: number): string {
 export function hsl(h: number, s: number, l: number, a = 1): string {
   return `hsla(${h % 360},${s}%,${l}%,${a})`;
 }
+
+/** Hue (0–360) of a hex colour. */
+export function hueOf(hex: string): number {
+  const [r, g, b] = parseHex(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  if (d === 0) return 0;
+  let h: number;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}

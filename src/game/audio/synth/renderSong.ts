@@ -19,6 +19,7 @@ export interface RenderedAudio {
 
 const TAIL_SECONDS = 2.5;
 const DUCK_BLOCK = 64;
+const TARGET_RMS = 0.25;
 
 /**
  * Render a whole composition to stereo PCM. Pure and deterministic: runs in a worker in
@@ -100,7 +101,7 @@ export function renderComposition(comp: Composition, sampleRate = 44100, seed = 
   };
 
   // ---- one-shot drum samples
-  const kickSample = inst.kick(sr, sound.kickTune);
+  const kickSample = inst.kick(sr, sound.kickTune, sound.kickDrive);
   const snareSample = inst.snare(sr, rng);
   const clapSample = inst.clap(sr, rng);
   const hatClosed = inst.hat(sr, rng, false);
@@ -131,8 +132,8 @@ export function renderComposition(comp: Composition, sampleRate = 44100, seed = 
     drum(s.kick, kickSample, 0.95);
     drum(s.snare, snareSample, 0.55, 0, 0.25 * sound.reverb);
     drum(s.clap, clapSample, 0.5, 0.05, 0.3 * sound.reverb);
-    drum(s.hat, hatClosed, 0.32, 0.25);
-    drum(s.openHat, hatOpen, 0.3, -0.2);
+    drum(s.hat, hatClosed, 0.32 * sound.hatLevel, 0.25);
+    drum(s.openHat, hatOpen, 0.3 * sound.hatLevel, -0.2);
     if (s.roll) {
       const list = rollSteps(steps);
       list.forEach((step, n) => mix(snareSample, at(step), { gain: 0.2 + 0.4 * (n / list.length), rev: 0.2 }));
@@ -183,7 +184,13 @@ export function renderComposition(comp: Composition, sampleRate = 44100, seed = 
     if (s.lead) {
       for (const e of expandMelodic(s.lead, steps, chordAt, 'lead')) {
         const dur = e.lengthSteps * stepSec * 0.95;
-        const v = inst.lead(sr, e.midi, dur, tone * sound.leadBrightness, sound.leadDetune, rng);
+        const brightness = tone * sound.leadBrightness;
+        const v =
+          sound.leadWave === 'pulse'
+            ? inst.pulseLead(sr, e.midi, dur, brightness)
+            : sound.leadWave === 'bell'
+              ? inst.bell(sr, e.midi, dur, brightness)
+              : inst.lead(sr, e.midi, dur, brightness, sound.leadDetune, rng);
         mix(v, at(e.step), {
           gain: 1.1 * (s.leadGain ?? 1),
           del: 0.28,
@@ -214,6 +221,17 @@ export function renderComposition(comp: Composition, sampleRate = 44100, seed = 
     const f = i < fadeIn ? i / fadeIn : 1;
     L[i] = Math.tanh(L[i] * norm * drive) * out * f;
     R[i] = Math.tanh(R[i] * norm * drive) * out * f;
+  }
+  // Loudness ceiling so heavily saturated songs don't play louder than the rest.
+  let sum = 0;
+  for (let i = 0; i < length; i += 4) sum += L[i] * L[i] + R[i] * R[i];
+  const rms = Math.sqrt(sum / (2 * Math.ceil(length / 4)));
+  if (rms > TARGET_RMS) {
+    const g = TARGET_RMS / rms;
+    for (let i = 0; i < length; i++) {
+      L[i] *= g;
+      R[i] *= g;
+    }
   }
   return { sampleRate: sr, left: L, right: R };
 }

@@ -9,6 +9,21 @@ describe.each(SONGS.map((s) => [s.id, s] as const))('song %s', (_id, song) => {
     expect(song.composition.bpm).toBe(song.bpm);
   });
 
+  it('every pattern covers whole bars', () => {
+    const bad: string[] = [];
+    for (const s of song.composition.sections) {
+      for (const key of ['kick', 'snare', 'clap', 'hat', 'openHat'] as const) {
+        const p = s[key];
+        if (p && p.replace(/\s+/g, '').length % 16 !== 0) bad.push(`${s.name}.${key}`);
+      }
+      for (const key of ['bass', 'arp', 'lead'] as const) {
+        const p = s[key];
+        if (p && p.trim().split(/\s+/).length % 16 !== 0) bad.push(`${s.name}.${key}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
   for (const diff of availableDifficulties(song)) {
     describe(diff, () => {
       const result = loadChart(song, diff)!;

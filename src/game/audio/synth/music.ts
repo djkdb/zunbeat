@@ -36,13 +36,20 @@ export interface SectionDef {
   roll?: boolean;
 }
 
+export type LeadWave = 'supersaw' | 'pulse' | 'bell';
+
 export interface SoundDesign {
   kickTune: number;
+  /** Kick saturation (1 = clean punch, 2–3 = hard/distorted). */
+  kickDrive: number;
+  leadWave: LeadWave;
   leadDetune: number;
   leadBrightness: number;
   bassDrive: number;
   reverb: number;
   sidechain: number;
+  /** Overall hi-hat level. */
+  hatLevel: number;
 }
 
 export interface Composition {
@@ -53,6 +60,9 @@ export interface Composition {
 
 export const DEFAULT_SOUND: SoundDesign = {
   kickTune: 1,
+  kickDrive: 1,
+  leadWave: 'supersaw',
+  hatLevel: 1,
   leadDetune: 1,
   leadBrightness: 1,
   bassDrive: 1,

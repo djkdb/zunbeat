@@ -3,8 +3,24 @@
 **RHYTHM IS EVERYTHING.** 브라우저에서 바로 플레이하는 4레인 리듬게임입니다.
 키보드(D F J K)와 모바일 터치를 모두 지원하고, 음악·노트·판정·콤보·FEVER·결과 화면이 하나의 흐름으로 이어집니다.
 
-- 오리지널 곡 3개 × 난이도 3개(EASY / NORMAL / HARD), 차트 9개
-- 모든 음악과 효과음은 코드로 작곡하고 브라우저에서 합성합니다. 외부 음원 파일이 없어 저작권 문제가 없습니다.
+- 오리지널 곡 9개 × 난이도 3개(EASY / NORMAL / HARD), 차트 27개
+- 모든 음악과 효과음은 코드로 작곡하고 브라우저에서 합성합니다. 외부 음원·샘플 파일이 전혀 없어 저작권 문제가 없습니다.
+
+## 수록곡
+
+| # | 곡 | 장르 | BPM | 길이 | 레벨 (E / N / H) | 배경 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 01 | MIDNIGHT DRIVE | Synthwave | 124 | 1:21 | 2 / 5 / 8 | 신스웨이브 하이웨이 |
+| 02 | DIGITAL RAIN | Cyber Breaks | 148 | 1:15 | 3 / 6 / 9 | 디지털 레인 |
+| 03 | NEON RUSH | Hyper DnB | 172 | 1:29 | 4 / 7 / 11 | 네온 터널 |
+| 04 | LOFI MOONRISE | Chill Beat | 88 | 1:33 | 1 / 3 / 6 | 별빛 워프 |
+| 05 | STARLIGHT PARADE | Future Funk | 112 | 1:30 | 2 / 5 / 8 | 별빛 워프 |
+| 06 | OCEAN CIRCUIT | Progressive House | 128 | 1:19 | 3 / 5 / 9 | 빛의 물결 |
+| 07 | GLITCH GARDEN | Chiptune Breaks | 140 | 1:12 | 3 / 6 / 10 | 디지털 레인 (보라) |
+| 08 | CRIMSON PULSE | Hard Electro | 160 | 1:36 | 4 / 7 / 11 | 네온 터널 (적색) |
+| 09 | SOLAR FLARE | Hyper Trance | 180 | 1:36 | 5 / 8 / 12 | 하이웨이 (태양) |
+
+리드 음색은 곡마다 슈퍼소우(supersaw) · 칩튠 펄스(pulse) · FM 벨(bell) 중에서 고르고, 킥 디스토션·하이햇 레벨·사이드체인 양으로 장르 느낌을 냅니다. 곡 간 음량은 마스터 단계에서 맞춥니다.
 - 서버 없이 동작합니다. 기록은 브라우저 `localStorage`에만 저장됩니다.
 
 ## 실행
@@ -18,6 +34,7 @@ npm run lint         # ESLint
 npm run typecheck    # TypeScript (strict)
 npm test             # 단위 테스트 + 차트 싱크 검사 (vitest)
 npm run check:charts # 차트 파서 경고를 줄 번호와 함께 출력
+npm run generate:charts # @generated 표시가 있는 차트를 작곡 데이터에서 다시 생성
 ```
 
 ## 조작
@@ -60,6 +77,7 @@ src/
     types.ts                 도메인 타입 (Song, Chart, Note, PlayResult …)
     config/                  판정·점수·FEVER·랭크·콤보·난이도·노트 타입 (밸런스 조정은 여기서만)
     chart/chartParser.ts     텍스트 차트 → 시간 기준 노트 (검증/경고 포함)
+    chart/chartGenerator.ts  작곡 데이터 → 텍스트 차트 자동 생성
     songs/                   곡 정의(작곡 데이터 + 테마) 와 charts/*.chart
     engine/
       GameEngine.ts          오케스트레이터: 루프, 페이즈, 일시정지, 디버그 도구
@@ -67,7 +85,7 @@ src/
       InputManager.ts        키보드 / 터치 / 마우스 → 레인 press/release
       JudgmentSystem.ts      노트 상태, 판정, 홀드 유지/브레이크
       ScoreSystem.ts         점수, 콤보, 정확도, FEVER, 이론 최대 점수
-    render/                  Canvas 렌더러: 원근 하이웨이, 노트 스프라이트, 파티클 풀, 곡별 배경
+    render/                  Canvas 렌더러: 원근 하이웨이, 노트 스프라이트, 파티클 풀, 배경 5종(테마 색 적용)
     audio/
       AudioManager.ts        AudioContext, MASTER/MUSIC/SFX 버스, 곡 캐시, 미리듣기
       synth/                 오프라인 DSP 신스(악기·리버브·딜레이·사이드체인)와 효과음
@@ -97,11 +115,20 @@ $A x2                       # 매크로 2번 재생
 - 파서는 잘못된 토큰, 레인 범위, 겹치는 노트, 홀드 끝 직후 같은 레인 노트(0.25박 미만)를 줄 번호와 함께 보고하고, 가능한 부분은 계속 읽습니다.
 - `npm test`의 **싱크 검사**는 모든 노트가 실제 음악의 발음 시점(킥·스네어·하이햇·베이스·리드·아르페지오)에 놓였는지 확인합니다.
 
+### 차트 자동 생성
+
+`npm run generate:charts`는 곡의 작곡 데이터(리드 멜로디·킥·스네어·아르페지오·스네어 롤)를 읽어 EASY/NORMAL/HARD 차트를 만듭니다 (`src/game/chart/chartGenerator.ts`).
+
+- 난이도별로 사용할 박자 격자, 최소 간격, 마디당 노트 수(BPM과 구간 에너지로 조절), 롱노트 기준, 동시치기 위치를 정합니다.
+- 레인은 멜로디 음높이의 흐름을 따르고, 같은 레인 연타와 홀드 중인 레인은 피합니다.
+- 두 번째 DROP은 `burst` 구간이 되어 HARD에서 16분 연타가 나옵니다.
+- 결과는 일반 차트 파일로 저장되어 손으로 고칠 수 있습니다. 파일의 `# @generated` 줄이 남아 있는 차트만 다시 생성되며, 그 줄을 지우면 수정한 내용이 보존됩니다. MIDNIGHT DRIVE · DIGITAL RAIN · NEON RUSH는 손으로 만든 차트입니다.
+
 ### 곡 추가하기
 
-1. `src/game/songs/`에 `SongDefinition`을 만듭니다: BPM, 테마 색/배경, `composition`(구간별 드럼 패턴·코드·베이스·리드), 난이도별 차트.
-2. 차트의 `[구간]` 이름과 길이를 `composition.sections`와 맞춥니다 (테스트가 검사합니다).
-3. `src/game/songs/index.ts`의 `SONGS`에 추가합니다. 난이도는 `src/game/config/difficulty.ts`에 정의된 것 중 차트가 있는 것만 표시됩니다 (EXPERT 슬롯 준비됨).
+1. `src/game/songs/`에 `SongDefinition`을 만듭니다: BPM, 테마(레인 색·배경 스타일·`sky` 팔레트), `composition`(구간별 드럼 패턴·코드·베이스·리드·음색), 난이도별 차트 import. 공용 드럼 패턴은 `songs/patterns.ts`에 있습니다.
+2. `charts/<id>.<difficulty>.chart` 파일을 `# @generated` 한 줄로 만들고 `npm run generate:charts`를 실행하거나, 직접 작성합니다. 차트의 `[구간]` 이름과 길이는 `composition.sections`와 맞아야 합니다 (테스트가 검사합니다).
+3. `src/game/songs/index.ts`의 `SONGS`에 추가하고 `npm test`로 싱크·패턴 길이·FEVER 위치를 확인합니다. 난이도는 `src/game/config/difficulty.ts`에 정의된 것 중 차트가 있는 것만 표시됩니다 (EXPERT 슬롯 준비됨).
 
 ## 디버그 모드
 

@@ -1,5 +1,6 @@
+import type { SongTheme } from '../../types';
 import type { Layout } from '../layout';
-import { hsl } from '../sprites';
+import { hsl, hueOf, withAlpha } from '../sprites';
 import { offscreen, type Background, type BackgroundFrame } from './types';
 
 interface SpeedLine {
@@ -8,8 +9,14 @@ interface SpeedLine {
   speed: number;
 }
 
-/** NEON RUSH: a spinning polygon tunnel and radial speed lines. */
+/** A spinning polygon tunnel and radial speed lines (NEON RUSH, CRIMSON PULSE). */
 export class RushBackground implements Background {
+  private hue: number;
+
+  constructor(private theme: SongTheme) {
+    this.hue = hueOf(theme.accent);
+  }
+
   private backdrop: HTMLCanvasElement | null = null;
   private travel = 0;
   private spin = 0;
@@ -22,9 +29,9 @@ export class RushBackground implements Background {
   resize(l: Layout): void {
     const [c, ctx] = offscreen(l);
     const g = ctx.createRadialGradient(l.width / 2, l.height * 0.34, 0, l.width / 2, l.height * 0.34, Math.max(l.width, l.height));
-    g.addColorStop(0, '#2a0838');
-    g.addColorStop(0.5, '#0c0214');
-    g.addColorStop(1, '#030006');
+    g.addColorStop(0, this.theme.sky[2]);
+    g.addColorStop(0.5, this.theme.sky[1]);
+    g.addColorStop(1, this.theme.sky[0]);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, l.width, l.height);
     this.backdrop = c;
@@ -43,13 +50,13 @@ export class RushBackground implements Background {
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineJoin = 'round';
     const rings = 14;
-    const baseHue = f.fever ? (f.t * 120) % 360 : 320;
+    const baseHue = f.fever ? (f.t * 120) % 360 : this.hue;
     for (let i = 0; i < rings; i++) {
       const z = ((i + 1 - (this.travel % 1)) / rings) * 1.0;
       const r = (maxR * 0.06) / Math.max(0.04, z);
       if (r > maxR * 1.4) continue;
       const alpha = Math.min(1, (1 - z) * 1.2) * (0.25 + f.energy * 0.35 + f.pulse * 0.3);
-      const hue = baseHue + (i % 2) * 60 + (i * 7);
+      const hue = baseHue + (i % 2) * 40 + i * 5;
       ctx.strokeStyle = hsl(hue, 100, 62, alpha);
       ctx.lineWidth = (1 + (1 - z) * 4) * (1 + f.pulse * 0.8);
       const sides = i % 3 === 0 ? 3 : 6;
@@ -76,7 +83,7 @@ export class RushBackground implements Background {
       const d0 = s.dist * s.dist * maxR;
       const d1 = d0 + 20 + s.dist * 140 * (0.5 + f.energy);
       const a = s.dist * (0.25 + f.energy * 0.5);
-      ctx.strokeStyle = f.fever ? hsl(f.t * 200 + s.angle * 60, 100, 70, a) : `rgba(255,228,92,${a})`;
+      ctx.strokeStyle = f.fever ? hsl(f.t * 200 + s.angle * 60, 100, 70, a) : withAlpha(this.theme.accent2, a);
       ctx.beginPath();
       ctx.moveTo(cx + Math.cos(s.angle) * d0, cy + Math.sin(s.angle) * d0);
       ctx.lineTo(cx + Math.cos(s.angle) * d1, cy + Math.sin(s.angle) * d1);

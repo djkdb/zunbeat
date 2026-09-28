@@ -1,4 +1,4 @@
-import { Metallic, OnePole, Pulse, Saw, Svf, TWO_PI, adsr, type Rng } from './dsp';
+import { Metallic, OnePole, Pulse, Saw, Svf, TWO_PI, adsr, polyBlep, type Rng } from './dsp';
 import { midiToFreqSafe } from './music';
 
 /** A rendered voice: mono, or stereo when `right` is set. */
@@ -11,7 +11,7 @@ const buf = (sr: number, seconds: number) => new Float32Array(Math.max(1, Math.c
 
 // ---------------------------------------------------------------- drums
 
-export function kick(sr: number, tune = 1): Float32Array {
+export function kick(sr: number, tune = 1, drive = 1): Float32Array {
   const out = buf(sr, 0.55);
   let phase = 0;
   for (let i = 0; i < out.length; i++) {
@@ -20,7 +20,7 @@ export function kick(sr: number, tune = 1): Float32Array {
     phase += (TWO_PI * f) / sr;
     const amp = (t < 0.002 ? t / 0.002 : 1) * Math.exp(-t * 6.2);
     const body = Math.sin(phase) * amp;
-    out[i] = Math.tanh(1.8 * body) * 0.95;
+    out[i] = (Math.tanh(1.8 * drive * body) / Math.tanh(1.8 * drive)) * 0.95;
   }
   return out;
 }
@@ -248,6 +248,70 @@ export function pad(sr: number, notes: number[], seconds: number, tone: number, 
     const amp = adsr(t, seconds, attack, 0.5, 0.85, release) * norm;
     left[i] = fL.low * amp;
     right[i] = fR.low * amp;
+  }
+  return { left, right };
+}
+
+/** Chiptune-style lead: two detuned pulse waves with slow PWM, split left/right. */
+export function pulseLead(sr: number, midi: number, seconds: number, tone: number): Voice {
+  const release = 0.12;
+  const left = buf(sr, seconds + release);
+  const right = buf(sr, seconds + release);
+  const f = midiToFreqSafe(midi);
+  const fL = new Svf(sr, 0.15);
+  const fR = new Svf(sr, 0.15);
+  const cutoff = 1600 + 5200 * tone;
+  fL.setCutoff(cutoff);
+  fR.setCutoff(cutoff * 1.05);
+  let p1 = 0;
+  let p2 = 0.37;
+  for (let i = 0; i < left.length; i++) {
+    const t = i / sr;
+    const vib = t > 0.15 ? Math.sin(TWO_PI * 6 * t) * 0.003 : 0;
+    const width = 0.25 + 0.15 * Math.sin(TWO_PI * 0.8 * t);
+    const dt1 = (f * (1 + vib)) / sr;
+    const dt2 = dt1 * 1.004;
+    p1 = (p1 + dt1) % 1;
+    p2 = (p2 + dt2) % 1;
+    fL.process(pulseAt(p1, dt1, width));
+    fR.process(pulseAt(p2, dt2, width));
+    const amp = adsr(t, seconds, 0.004, 0.12, 0.7, release) * 0.2;
+    left[i] = fL.low * amp;
+    right[i] = fR.low * amp;
+  }
+  return { left, right };
+}
+
+/** Band-limited pulse from two phase-offset saws. */
+function pulseAt(phase: number, dt: number, width: number): number {
+  const a = 2 * phase - 1 - polyBlep(phase, dt);
+  const q = (phase + width) % 1;
+  const b = 2 * q - 1 - polyBlep(q, dt);
+  return (a - b) * 0.5;
+}
+
+/** Two-operator FM bell / electric-piano tone with a long natural decay. */
+export function bell(sr: number, midi: number, seconds: number, tone: number): Voice {
+  const tail = 0.9;
+  const left = buf(sr, seconds + tail);
+  const right = buf(sr, seconds + tail);
+  const f = midiToFreqSafe(midi);
+  let pc = 0;
+  let pm = 0;
+  let po = 0;
+  for (let i = 0; i < left.length; i++) {
+    const t = i / sr;
+    pm += (TWO_PI * f * 3.5) / sr;
+    pc += (TWO_PI * f) / sr;
+    po += (TWO_PI * f * 2.001) / sr;
+    const index = (1.2 + 2.2 * tone) * Math.exp(-t * 5);
+    const car = Math.sin(pc + Math.sin(pm) * index);
+    const oct = Math.sin(po) * 0.25 * Math.exp(-t * 3);
+    const release = t > seconds ? Math.exp(-(t - seconds) * 6) : 1;
+    const amp = (t < 0.004 ? t / 0.004 : 1) * Math.exp(-t * 1.6) * release * 0.26;
+    const v = (car + oct) * amp;
+    left[i] = v;
+    right[i] = v * 0.92;
   }
   return { left, right };
 }

@@ -43,6 +43,7 @@ export const midnightDrive: SongDefinition = {
     accent: '#ff4fd8',
     accent2: '#ffb347',
     jacket: 'linear-gradient(160deg, #1a0536 0%, #5a0f6e 45%, #ff4f8b 78%, #ffb347 100%)',
+    sky: ['#07010f', '#1d0535', '#5c0f5a'],
   },
   composition: {
     bpm: 124,

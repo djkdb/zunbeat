@@ -1,11 +1,14 @@
+import type { SongTheme } from '../../types';
 import type { Layout } from '../layout';
-import { glowSprite } from '../sprites';
+import { glowSprite, mix, withAlpha } from '../sprites';
 import { offscreen, type Background, type BackgroundFrame } from './types';
 
-/** MIDNIGHT DRIVE: synthwave sunset, mountains and an endless neon grid. */
+/** Synthwave sunset, mountains and an endless neon grid (MIDNIGHT DRIVE, SOLAR FLARE). */
 export class HighwayBackground implements Background {
   private backdrop: HTMLCanvasElement | null = null;
   private travel = 0;
+
+  constructor(private theme: SongTheme) {}
 
   resize(l: Layout): void {
     const [c, ctx] = offscreen(l);
@@ -13,14 +16,15 @@ export class HighwayBackground implements Background {
     const H = l.height;
     const horizon = H * 0.46;
     const sky = ctx.createLinearGradient(0, 0, 0, horizon);
-    sky.addColorStop(0, '#07010f');
-    sky.addColorStop(0.55, '#1d0535');
-    sky.addColorStop(1, '#5c0f5a');
+    const [s0, s1, s2] = this.theme.sky;
+    sky.addColorStop(0, s0);
+    sky.addColorStop(0.55, s1);
+    sky.addColorStop(1, s2);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, horizon);
     const floor = ctx.createLinearGradient(0, horizon, 0, H);
-    floor.addColorStop(0, '#1a0428');
-    floor.addColorStop(1, '#05010a');
+    floor.addColorStop(0, mix(s1, '#000000', 0.25));
+    floor.addColorStop(1, mix(s0, '#000000', 0.5));
     ctx.fillStyle = floor;
     ctx.fillRect(0, horizon, W, H - horizon);
     // stars
@@ -36,9 +40,9 @@ export class HighwayBackground implements Background {
     const sx = W / 2;
     const sy = horizon - r * 0.35;
     const sun = ctx.createLinearGradient(0, sy - r, 0, sy + r);
-    sun.addColorStop(0, '#ffe45c');
-    sun.addColorStop(0.5, '#ff7a3d');
-    sun.addColorStop(1, '#ff2e88');
+    sun.addColorStop(0, mix(this.theme.accent2, '#ffffff', 0.25));
+    sun.addColorStop(0.5, mix(this.theme.accent2, this.theme.accent, 0.5));
+    sun.addColorStop(1, this.theme.accent);
     ctx.save();
     ctx.beginPath();
     ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -52,8 +56,8 @@ export class HighwayBackground implements Background {
     }
     ctx.restore();
     // mountains
-    ctx.fillStyle = '#12021f';
-    ctx.strokeStyle = 'rgba(255,79,216,0.55)';
+    ctx.fillStyle = mix(s0, s1, 0.5);
+    ctx.strokeStyle = withAlpha(this.theme.accent, 0.55);
     ctx.lineWidth = 1.5;
     for (const side of [-1, 1]) {
       ctx.beginPath();
@@ -88,12 +92,12 @@ export class HighwayBackground implements Background {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.25 + f.pulse * 0.25 + (f.fever ? 0.2 : 0);
     const g = r * (2.6 + f.pulse * 0.4);
-    ctx.drawImage(glowSprite('#ff4f8b'), W / 2 - g, horizon - r * 0.35 - g, g * 2, g * 2);
+    ctx.drawImage(glowSprite(this.theme.accent), W / 2 - g, horizon - r * 0.35 - g, g * 2, g * 2);
     ctx.globalAlpha = 1;
 
     // grid
     const lineAlpha = 0.28 + f.pulse * 0.35 + f.energy * 0.15;
-    ctx.strokeStyle = f.fever ? `rgba(120,240,255,${lineAlpha})` : `rgba(255,79,216,${lineAlpha})`;
+    ctx.strokeStyle = withAlpha(f.fever ? this.theme.accent2 : this.theme.accent, Math.min(1, lineAlpha));
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     const depth = H - horizon;
@@ -113,7 +117,7 @@ export class HighwayBackground implements Background {
     }
     ctx.stroke();
     // horizon line
-    ctx.fillStyle = `rgba(255,120,220,${0.6 + f.pulse * 0.4})`;
+    ctx.fillStyle = withAlpha(mix(this.theme.accent, '#ffffff', 0.3), Math.min(1, 0.6 + f.pulse * 0.4));
     ctx.fillRect(0, horizon - 1, W, 2);
     ctx.globalCompositeOperation = 'source-over';
   }

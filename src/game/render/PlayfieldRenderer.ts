@@ -74,7 +74,7 @@ export class PlayfieldRenderer implements GamePresenter {
     this.ctx = ctx;
     this.opts = opts;
     this.visibleSeconds = BASE_VISIBLE_SECONDS / Math.max(0.5, opts.noteSpeed);
-    this.bg = createBackground(opts.theme.background);
+    this.bg = createBackground(opts.theme);
     this.layout = computeLayout(1, 1, 1);
   }
 

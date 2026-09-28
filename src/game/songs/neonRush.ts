@@ -41,6 +41,7 @@ export const neonRush: SongDefinition = {
     accent: '#ff3d8b',
     accent2: '#ffe45c',
     jacket: 'linear-gradient(135deg, #12001f 0%, #4b0a5e 35%, #ff3d8b 70%, #ffe45c 100%)',
+    sky: ['#030006', '#0c0214', '#2a0838'],
   },
   composition: {
     bpm: 172,

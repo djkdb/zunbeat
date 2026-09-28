@@ -1,4 +1,6 @@
+import type { SongTheme } from '../../types';
 import type { Layout } from '../layout';
+import { mix, withAlpha } from '../sprites';
 import { offscreen, type Background, type BackgroundFrame } from './types';
 
 const GLYPHS = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF#$%&';
@@ -12,8 +14,10 @@ interface Stream {
   seed: number;
 }
 
-/** DIGITAL RAIN: falling glyph streams and vertical light pillars. */
+/** Falling glyph streams and vertical light pillars (DIGITAL RAIN, GLITCH GARDEN). */
 export class RainBackground implements Background {
+  constructor(private theme: SongTheme) {}
+
   private backdrop: HTMLCanvasElement | null = null;
   private atlas: HTMLCanvasElement | null = null;
   private atlasBright: HTMLCanvasElement | null = null;
@@ -22,13 +26,13 @@ export class RainBackground implements Background {
   resize(l: Layout): void {
     const [c, ctx] = offscreen(l);
     const g = ctx.createLinearGradient(0, 0, 0, l.height);
-    g.addColorStop(0, '#00100c');
-    g.addColorStop(1, '#010605');
+    g.addColorStop(0, this.theme.sky[1]);
+    g.addColorStop(1, this.theme.sky[0]);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, l.width, l.height);
     this.backdrop = c;
-    this.atlas = this.makeAtlas('#1fdc8f');
-    this.atlasBright = this.makeAtlas('#d8fff0');
+    this.atlas = this.makeAtlas(mix(this.theme.accent, '#000000', 0.12));
+    this.atlasBright = this.makeAtlas(mix(this.theme.accent, '#ffffff', 0.8));
     const count = Math.ceil(l.width / (CELL * 1.25));
     this.streams = Array.from({ length: count }, (_, i) => ({
       x: i * CELL * 1.25 + CELL / 2,
@@ -67,9 +71,9 @@ export class RainBackground implements Background {
       const w = 60 + f.energy * 80;
       const a = (0.04 + f.pulse * 0.1 * f.energy) * (f.fever ? 1.8 : 1);
       const g = ctx.createLinearGradient(x - w, 0, x + w, 0);
-      g.addColorStop(0, 'rgba(61,255,176,0)');
-      g.addColorStop(0.5, `rgba(61,255,176,${a})`);
-      g.addColorStop(1, 'rgba(61,255,176,0)');
+      g.addColorStop(0, withAlpha(this.theme.accent, 0));
+      g.addColorStop(0.5, withAlpha(this.theme.accent, Math.min(1, a)));
+      g.addColorStop(1, withAlpha(this.theme.accent, 0));
       ctx.fillStyle = g;
       ctx.fillRect(x - w, 0, w * 2, l.height);
     }

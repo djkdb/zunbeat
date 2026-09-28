@@ -56,7 +56,7 @@ export interface ChartParseResult {
 
 export type Judgment = 'perfect' | 'great' | 'good' | 'miss';
 
-export type BackgroundId = 'highway' | 'rain' | 'rush';
+export type BackgroundId = 'highway' | 'rain' | 'rush' | 'stars' | 'waves';
 
 export interface SongTheme {
   background: BackgroundId;
@@ -66,6 +66,8 @@ export interface SongTheme {
   accent2: string;
   /** CSS gradient used for jacket art and menus. */
   jacket: string;
+  /** Background sky/backdrop colours, top to bottom (dark → lighter). */
+  sky: [string, string, string];
 }
 
 export interface DifficultyDef {

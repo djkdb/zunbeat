@@ -2,12 +2,28 @@ import { parseChart } from '../chart/chartParser';
 import { DIFFICULTIES } from '../config/difficulty';
 import type { ChartParseResult, DifficultyId, SongDefinition } from '../types';
 import { analyzeComposition, type CompositionAnalysis } from '../audio/synth/music';
+import { crimsonPulse } from './crimsonPulse';
 import { digitalRain } from './digitalRain';
+import { glitchGarden } from './glitchGarden';
+import { lofiMoonrise } from './lofiMoonrise';
 import { midnightDrive } from './midnightDrive';
 import { neonRush } from './neonRush';
+import { oceanCircuit } from './oceanCircuit';
+import { solarFlare } from './solarFlare';
+import { starlightParade } from './starlightParade';
 
 /** Song registry. Add a song definition here and it shows up in the game. */
-export const SONGS: readonly SongDefinition[] = [midnightDrive, digitalRain, neonRush];
+export const SONGS: readonly SongDefinition[] = [
+  midnightDrive,
+  digitalRain,
+  neonRush,
+  lofiMoonrise,
+  starlightParade,
+  oceanCircuit,
+  glitchGarden,
+  crimsonPulse,
+  solarFlare,
+];
 
 export function getSong(id: string): SongDefinition | undefined {
   return SONGS.find((s) => s.id === id);

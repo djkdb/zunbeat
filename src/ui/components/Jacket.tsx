@@ -40,6 +40,41 @@ export function Jacket({ song, size = 'md' }: { song: SongDefinition; size?: 'sm
               opacity={0.85}
             />
           ))}
+        {theme.background === 'stars' && (
+          <g>
+            <circle cx="68" cy="30" r="14" fill={theme.accent2} opacity="0.9" />
+            <circle cx="62" cy="26" r="13" fill="rgba(0,0,0,0.35)" />
+            {Array.from({ length: 18 }, (_, i) => {
+              const a = (i / 18) * Math.PI * 2;
+              const r1 = 10 + (i % 3) * 6;
+              const r2 = r1 + 10 + (i % 4) * 5;
+              return (
+                <line
+                  key={i}
+                  x1={50 + Math.cos(a) * r1}
+                  y1={55 + Math.sin(a) * r1}
+                  x2={50 + Math.cos(a) * r2}
+                  y2={55 + Math.sin(a) * r2}
+                  stroke={i % 2 ? '#ffffff' : theme.accent}
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                />
+              );
+            })}
+          </g>
+        )}
+        {theme.background === 'waves' && (
+          <g fill="none" strokeWidth="1.6">
+            {[40, 50, 60, 70].map((y, i) => (
+              <path
+                key={y}
+                d={`M0 ${y} C 20 ${y - 10}, 35 ${y + 10}, 50 ${y} S 80 ${y - 10}, 100 ${y}`}
+                stroke={i % 2 ? theme.accent2 : theme.accent}
+                opacity={0.95 - i * 0.15}
+              />
+            ))}
+          </g>
+        )}
         {theme.background === 'rush' && (
           <g fill="none" strokeWidth="1.4">
             {[34, 24, 15, 8].map((r, i) => (

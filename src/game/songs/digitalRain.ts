@@ -43,6 +43,7 @@ export const digitalRain: SongDefinition = {
     accent: '#3dffb0',
     accent2: '#3dc8ff',
     jacket: 'linear-gradient(170deg, #01140f 0%, #04352a 40%, #0f7a5c 75%, #3dffb0 100%)',
+    sky: ['#010605', '#00100c', '#023024'],
   },
   composition: {
     bpm: 148,

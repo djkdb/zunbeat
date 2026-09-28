@@ -12,6 +12,7 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run src",
     "render:check": "vitest run scripts/render-check.test.ts",
+    "generate:charts": "vitest run scripts/generate-charts.test.ts --silent=false",
     "check:charts": "vitest run src/game/songs scripts/chart-lint.test.ts"
   },
   "dependencies": {

@@ -666,6 +666,9 @@ button:disabled {
   font-size: 11px;
   letter-spacing: 0.12em;
   color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .song-card__best {
@@ -2196,14 +2199,17 @@ button:disabled {
 @media (max-width: 860px) {
   .select__body {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto;
+    align-content: start;
     overflow-y: auto;
   }
 
   .song-list {
     flex-direction: row;
     overflow-x: auto;
-    overflow-y: visible;
+    overflow-y: hidden;
+    /* a scroll container has no intrinsic height inside the grid row */
+    min-height: 96px;
     padding: 4px 4px 10px;
     scroll-snap-type: x mandatory;
   }
@@ -2214,11 +2220,18 @@ button:disabled {
   }
 
   .song-card.is-active {
-    transform: translateY(-3px);
+    transform: none;
   }
 
   .song-detail {
     overflow: visible;
+  }
+
+  .btn--start {
+    position: sticky;
+    bottom: calc(8px + var(--safe-bottom));
+    z-index: 2;
+    min-height: 64px;
   }
 
   .screen-header__hint {
