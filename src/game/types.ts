@@ -99,6 +99,18 @@ export interface JudgmentCounts {
   miss: number;
 }
 
+export interface TimingSummary {
+  /** Trimmed mean of press offsets in ms (positive = late). */
+  meanMs: number;
+  samples: number;
+  /** Counts per `binMs` bucket from -rangeMs to +rangeMs. */
+  histogram: number[];
+  binMs: number;
+  rangeMs: number;
+  /** The audio offset setting the play used. */
+  offsetMsUsed: number;
+}
+
 export interface PlayResult {
   songId: string;
   difficulty: DifficultyId;
@@ -115,5 +127,6 @@ export interface PlayResult {
   autoplay: boolean;
   /** 0..1 fraction of the theoretical max score. */
   scoreRatio: number;
+  timing: TimingSummary;
   playedAt: number;
 }

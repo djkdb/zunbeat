@@ -25,7 +25,12 @@ const TARGET_RMS = 0.25;
  * Render a whole composition to stereo PCM. Pure and deterministic: runs in a worker in
  * the browser and in Node for tests. Beat 0 is sample 0.
  */
-export function renderComposition(comp: Composition, sampleRate = 44100, seed = 1): RenderedAudio {
+export function renderComposition(
+  comp: Composition,
+  sampleRate = 44100,
+  seed = 1,
+  onProgress?: (fraction: number) => void,
+): RenderedAudio {
   const sr = sampleRate;
   const sound = { ...DEFAULT_SOUND, ...comp.sound };
   const rng = mulberry32(seed);
@@ -113,7 +118,9 @@ export function renderComposition(comp: Composition, sampleRate = 44100, seed = 
   const bassCache = new Map<string, Float32Array>();
 
   let beat = 0;
+  let sectionIndex = 0;
   for (const s of comp.sections) {
+    onProgress?.((0.8 * sectionIndex++) / comp.sections.length);
     const startSec = beat * spb;
     const steps = s.bars * 16;
     const tone = s.tone ?? 1;
@@ -202,8 +209,11 @@ export function renderComposition(comp: Composition, sampleRate = 44100, seed = 
     beat += s.bars * 4;
   }
 
+  onProgress?.(0.8);
   applyPingPong(delSend, L, R, sr, spb * 0.75, 0.38, 0.55, duckAt);
+  onProgress?.(0.87);
   applyReverb(revSend, L, R, sr, 0.9 * sound.reverb, duckAt);
+  onProgress?.(0.97);
 
   // ---- master: normalise + gentle saturation
   let peak = 0;

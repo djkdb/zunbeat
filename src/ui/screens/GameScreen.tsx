@@ -14,6 +14,8 @@ import { DebugPresenter } from '../game/DebugPresenter';
 import { Hud } from '../game/Hud';
 import { HudController, type HudRefs } from '../game/HudController';
 import { PauseMenu } from '../game/PauseMenu';
+import { HowToPlay } from '../game/HowToPlay';
+import { isTouchPrimary } from '../device';
 import { Jacket } from '../components/Jacket';
 import { toggleFullscreen, fullscreenSupported, useFullscreen } from '../fullscreen';
 
@@ -26,12 +28,23 @@ interface Props {
   onQuit: () => void;
 }
 
+function LoadingProgress({ songId }: { songId: string }) {
+  const [fraction, setFraction] = useState(0);
+  useEffect(() => audio.onSongProgress(songId, setFraction), [songId]);
+  return (
+    <span className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)}>
+      <i style={{ transform: `scaleX(${Math.max(0.03, fraction)})` }} />
+      <b>{Math.round(fraction * 100)}%</b>
+    </span>
+  );
+}
+
 type Prepared = { ok: false; error: string } | { ok: true; song: SongDefinition; chart: Chart };
 
 type Status = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; silent: boolean };
 
 export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, onQuit }: Props) {
-  const { settings, sfx } = useApp();
+  const { settings, updateSettings, sfx } = useApp();
   const song = getSong(songId);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -57,9 +70,13 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
     return { ok: true, song, chart: parsed.chart };
   }, [song, songId, difficulty]);
   const status: Status = prepared.ok ? runtimeStatus : { kind: 'error', message: prepared.error };
-  const [phase, setPhase] = useState<EnginePhase>('countdown');
+  const [phase, setPhase] = useState<EnginePhase>('ready');
   const [debugPresenter] = useState(() => new DebugPresenter());
   const isFullscreen = useFullscreen();
+  const [touch] = useState(isTouchPrimary);
+  // Read once per play: the HOW TO PLAY card gates the very first song.
+  const [needTutorial] = useState(() => !settings.seenTutorial);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Keep latest callbacks without restarting the engine.
   const callbacks = useRef({ onFinish, onQuit });
@@ -83,6 +100,10 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
     const onVisibility = () => {
       if (document.hidden) created?.pause();
     };
+    // Desktop: switching to another window pauses too (keys can't reach the game).
+    const onBlur = () => {
+      if (!touch && created && created.phase !== 'countdown') created.pause();
+    };
 
     audio.stopPreview(0.2);
     void audio.loadSong(song).then((buffer) => {
@@ -97,7 +118,8 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
           theme: song.theme,
           noteSpeed: settings.noteSpeed,
           reducedMotion: settings.reducedMotion,
-          keyLabels: settings.keys.map(keyLabel),
+          keyLabels: touch ? [] : settings.keys.map(keyLabel),
+          touchHints: touch,
         });
         const hud = new HudController(hudRefs, {
           reducedMotion: settings.reducedMotion,
@@ -133,7 +155,12 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
         setEngine(created);
         setStatus({ kind: 'ready', silent: !created.hasAudio });
         document.addEventListener('visibilitychange', onVisibility);
-        created.start();
+        window.addEventListener('blur', onBlur);
+        if (needTutorial) {
+          created.renderStill();
+          setShowTutorial(true);
+        }
+        else created.start();
         if (DEBUG_ENABLED) (window as unknown as { __BEATSHIFT__?: unknown }).__BEATSHIFT__ = { engine: created };
       } catch (err) {
         console.error(err);
@@ -145,12 +172,13 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
       cancelled = true;
       observer?.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', onBlur);
       created?.destroy();
       engineRef.current = null;
     };
     // Settings are read once per play on purpose; changing them mid-song would desync.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prepared, difficulty, autoplay, debugPresenter, togglePause]);
+  }, [prepared, difficulty, autoplay, debugPresenter, togglePause, needTutorial, touch]);
 
   const paused = phase === 'paused';
 
@@ -173,7 +201,7 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
             sfx('menuSelect');
             togglePause();
           }}
-          disabled={status.kind !== 'ready' || phase === 'finishing' || phase === 'finished'}
+          disabled={status.kind !== 'ready' || phase === 'ready' || phase === 'finishing' || phase === 'finished'}
         >
           ❚❚
         </button>
@@ -185,7 +213,7 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
           <div className="game__loading-text">
             <span className="game__loading-title">{song.title}</span>
             <span className="game__loading-sub">SYNTHESIZING AUDIO…</span>
-            <span className="loading-bar" />
+            <LoadingProgress songId={song.id} />
           </div>
         </div>
       )}
@@ -200,6 +228,18 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
             BACK TO SONG SELECT
           </button>
         </div>
+      )}
+      {showTutorial && (
+        <HowToPlay
+          keys={settings.keys}
+          touch={touch}
+          onStart={() => {
+            setShowTutorial(false);
+            updateSettings({ seenTutorial: true });
+            audio.unlock();
+            engineRef.current?.start();
+          }}
+        />
       )}
       {paused && (
         <PauseMenu

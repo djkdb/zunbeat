@@ -4,6 +4,7 @@ import { difficultyMeta } from '../../game/config/difficulty';
 import { SONGS, availableDifficulties, loadChart, songLength } from '../../game/songs';
 import type { DifficultyId, SongDefinition } from '../../game/types';
 import { recordKey } from '../../storage/records';
+import { NOTE_SPEEDS } from '../../storage/settings';
 import { useApp } from '../appContext';
 import { Jacket } from '../components/Jacket';
 import { MenuBackground } from '../components/MenuBackground';
@@ -45,7 +46,7 @@ function chartInfo(song: SongDefinition, diff: DifficultyId): ChartInfo {
 }
 
 export function SongSelectScreen({ initialSongId, initialDifficulty, onStart, onBack }: Props) {
-  const { records, settings, sfx } = useApp();
+  const { records, settings, updateSettings, sfx } = useApp();
   const [songIndex, setSongIndex] = useState(() => Math.max(0, SONGS.findIndex((s) => s.id === initialSongId)));
   const song = SONGS[songIndex];
   const diffs = availableDifficulties(song);
@@ -77,6 +78,18 @@ export function SongSelectScreen({ initialSongId, initialDifficulty, onStart, on
     sfx('menuSelect');
     onStart(song.id, activeDiff);
   };
+  const stepSpeed = (dir: number) => {
+    const i = NOTE_SPEEDS.indexOf(settings.noteSpeed as (typeof NOTE_SPEEDS)[number]);
+    const next = NOTE_SPEEDS[Math.max(0, Math.min(NOTE_SPEEDS.length - 1, (i < 0 ? 3 : i) + dir))];
+    if (next !== settings.noteSpeed) {
+      sfx('menuMove');
+      updateSettings({ noteSpeed: next });
+    }
+  };
+  const stepSpeedRef = useRef(stepSpeed);
+  useEffect(() => {
+    stepSpeedRef.current = stepSpeed;
+  });
   const startRef = useRef(start);
   useEffect(() => {
     startRef.current = start;
@@ -100,6 +113,8 @@ export function SongSelectScreen({ initialSongId, initialDifficulty, onStart, on
       else if (e.key === 'ArrowDown') moveSong(1);
       else if (e.key === 'ArrowLeft') moveDiff(-1);
       else if (e.key === 'ArrowRight') moveDiff(1);
+      else if (e.key === '[' || e.key === '-') stepSpeedRef.current(-1);
+      else if (e.key === ']' || e.key === '=' || e.key === '+') stepSpeedRef.current(1);
       else if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) {
         e.preventDefault();
         startRef.current();
@@ -128,7 +143,7 @@ export function SongSelectScreen({ initialSongId, initialDifficulty, onStart, on
           ← BACK
         </button>
         <h2 className="screen-header__title">SONG SELECT</h2>
-        <span className="screen-header__hint">↑↓ SONG · ←→ LEVEL · ENTER START</span>
+        <span className="screen-header__hint">↑↓ SONG · ←→ LEVEL · [ ] SPEED · ENTER START</span>
       </header>
 
       <div className="select__body">
@@ -260,6 +275,24 @@ export function SongSelectScreen({ initialSongId, initialDifficulty, onStart, on
             )}
           </div>
 
+          <div className="speed-row">
+            <span className="stat__label">NOTE SPEED</span>
+            <div className="stepper" role="group" aria-label="Note speed">
+              <button className="stepper__btn" aria-label="Slower notes" onClick={() => stepSpeed(-1)} disabled={settings.noteSpeed <= NOTE_SPEEDS[0]}>
+                −
+              </button>
+              <output className="stepper__value">{settings.noteSpeed}×</output>
+              <button
+                className="stepper__btn"
+                aria-label="Faster notes"
+                onClick={() => stepSpeed(1)}
+                disabled={settings.noteSpeed >= NOTE_SPEEDS[NOTE_SPEEDS.length - 1]}
+              >
+                +
+              </button>
+            </div>
+            {settings.offsetMs !== 0 && <span className="speed-row__offset">OFFSET {settings.offsetMs > 0 ? '+' : ''}{settings.offsetMs} MS</span>}
+          </div>
           <button className="btn btn--start" onClick={start} disabled={!info.notes}>
             <span>START</span>
             <small>

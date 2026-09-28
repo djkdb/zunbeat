@@ -15,7 +15,12 @@ export interface Settings {
   showFastSlow: boolean;
   lastSongId: string;
   lastDifficulty: string;
+  /** The HOW TO PLAY card has been shown once. */
+  seenTutorial: boolean;
 }
+
+/** Audio offset range in ms (Bluetooth headphones can need 200+). */
+export const OFFSET_LIMIT_MS = 300;
 
 const KEY = 'beatshift.settings.v1';
 
@@ -38,7 +43,9 @@ export function defaultSettings(): Settings {
     offsetMs: 0,
     showFastSlow: true,
     lastSongId: 'midnight-drive',
-    lastDifficulty: 'normal',
+    // First-time players start on EASY.
+    lastDifficulty: 'easy',
+    seenTutorial: false,
   };
 }
 
@@ -60,10 +67,11 @@ export function validateSettings(raw: unknown): Settings {
     noteSpeed: (NOTE_SPEEDS as readonly number[]).includes(speed) ? speed : d.noteSpeed,
     keys,
     reducedMotion: bool(raw.reducedMotion, d.reducedMotion),
-    offsetMs: Math.round(num(raw.offsetMs, 0, -200, 200)),
+    offsetMs: Math.round(num(raw.offsetMs, 0, -OFFSET_LIMIT_MS, OFFSET_LIMIT_MS)),
     showFastSlow: bool(raw.showFastSlow, true),
     lastSongId: str(raw.lastSongId, d.lastSongId),
     lastDifficulty: str(raw.lastDifficulty, d.lastDifficulty),
+    seenTutorial: bool(raw.seenTutorial, false),
   };
 }
 

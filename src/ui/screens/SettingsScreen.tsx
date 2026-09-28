@@ -1,8 +1,9 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { audio } from '../../game/audio/AudioManager';
 import { DEFAULT_KEYS } from '../../game/constants';
-import { NOTE_SPEEDS, keyLabel, type Settings } from '../../storage/settings';
+import { NOTE_SPEEDS, OFFSET_LIMIT_MS, keyLabel, type Settings } from '../../storage/settings';
 import { useApp } from '../appContext';
+import { CalibrationDialog } from '../components/CalibrationDialog';
 import { MenuBackground } from '../components/MenuBackground';
 import { fullscreenSupported, toggleFullscreen, useFullscreen } from '../fullscreen';
 
@@ -43,11 +44,19 @@ function Slider({
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const { settings, updateSettings, sfx } = useApp();
   const [binding, setBinding] = useState<number | null>(null);
+  const [calibrating, setCalibrating] = useState(false);
   const isFs = useFullscreen();
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => updateSettings({ [key]: value } as Partial<Settings>);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (calibrating) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setCalibrating(false);
+        }
+        return;
+      }
       if (binding !== null) {
         e.preventDefault();
         e.stopPropagation();
@@ -73,7 +82,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [binding, settings.keys, updateSettings, onBack, sfx]);
+  }, [binding, calibrating, settings.keys, updateSettings, onBack, sfx]);
 
   return (
     <div className="screen settings">
@@ -107,16 +116,24 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             <input
               id="offset"
               type="range"
-              min={-200}
-              max={200}
+              min={-OFFSET_LIMIT_MS}
+              max={OFFSET_LIMIT_MS}
               step={5}
               value={settings.offsetMs}
               onChange={(e) => set('offsetMs', Number(e.target.value))}
-              style={{ '--fill': `${((settings.offsetMs + 200) / 400) * 100}%` } as CSSProperties}
+              style={{ '--fill': `${((settings.offsetMs + OFFSET_LIMIT_MS) / (OFFSET_LIMIT_MS * 2)) * 100}%` } as CSSProperties}
             />
             <output htmlFor="offset">{settings.offsetMs > 0 ? `+${settings.offsetMs}` : settings.offsetMs} ms</output>
           </div>
-          <p className="setting__help">Notes feel late? Lower the offset. Early? Raise it. Bluetooth headphones usually need +100 ms or more.</p>
+          <div className="setting">
+            <span>SYNC CHECK</span>
+            <button className="btn btn--ghost btn--small" onClick={() => setCalibrating(true)}>
+              CALIBRATE BY TAPPING
+            </button>
+          </div>
+          <p className="setting__help">
+            Hitting late all the time? Calibrate once — Bluetooth headphones usually need +100 ms or more. The result screen also offers a fix when your timing is consistently off.
+          </p>
         </section>
 
         <section className="settings__group">
@@ -172,6 +189,16 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         </section>
 
         <section className="settings__group">
+          <h3>HELP</h3>
+          <div className="setting">
+            <span>HOW TO PLAY</span>
+            <button className="btn btn--ghost btn--small" onClick={() => updateSettings({ seenTutorial: false })}>
+              {settings.seenTutorial ? 'SHOW BEFORE NEXT SONG' : 'WILL SHOW NEXT SONG'}
+            </button>
+          </div>
+        </section>
+
+        <section className="settings__group">
           <h3>DISPLAY</h3>
           <div className="setting">
             <span>REDUCED MOTION</span>
@@ -190,6 +217,17 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           )}
         </section>
       </div>
+      {calibrating && (
+        <CalibrationDialog
+          currentOffset={settings.offsetMs}
+          onApply={(v) => {
+            updateSettings({ offsetMs: v });
+            setCalibrating(false);
+            sfx('menuSelect');
+          }}
+          onClose={() => setCalibrating(false)}
+        />
+      )}
     </div>
   );
 }

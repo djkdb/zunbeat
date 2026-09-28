@@ -18,6 +18,7 @@ export interface MusicHandle {
 
 interface WorkerResponse {
   id: number;
+  progress?: number;
   ok: boolean;
   error?: string;
   sampleRate: number;
@@ -40,6 +41,9 @@ export class AudioManager {
   private worker: Worker | null = null;
   private workerFailed = false;
   private pending = new Map<number, (r: WorkerResponse) => void>();
+  private progressById = new Map<number, (fraction: number) => void>();
+  private songProgress = new Map<string, number>();
+  private progressListeners = new Map<string, Set<(fraction: number) => void>>();
   private nextId = 1;
   private volumes: Volumes = { master: 0.8, music: 0.8, sfx: 0.7 };
   private preview: { source: AudioBufferSourceNode; gain: GainNode; songId: string } | null = null;
@@ -164,6 +168,7 @@ export class AudioManager {
       this.songs.set(song.id, cached);
       return cached;
     }
+    this.reportProgress(song.id, 0);
     const promise = this.renderSong(song).catch((err) => {
       console.warn('[audio] song render failed', err);
       this.songs.delete(song.id);
@@ -178,6 +183,23 @@ export class AudioManager {
     return promise;
   }
 
+  private reportProgress(songId: string, fraction: number): void {
+    this.songProgress.set(songId, fraction);
+    for (const cb of this.progressListeners.get(songId) ?? []) cb(fraction);
+  }
+
+  /** Follow render progress (0–1) of a song; fires immediately with the current value. */
+  onSongProgress(songId: string, cb: (fraction: number) => void): () => void {
+    let set = this.progressListeners.get(songId);
+    if (!set) {
+      set = new Set();
+      this.progressListeners.set(songId, set);
+    }
+    set.add(cb);
+    cb(this.songProgress.get(songId) ?? 0);
+    return () => set.delete(cb);
+  }
+
   private async renderSong(song: SongDefinition): Promise<AudioBuffer | null> {
     if (!this.ctx) this.create();
     const ctx = this.ctx;
@@ -190,6 +212,7 @@ export class AudioManager {
     const buffer = ctx.createBuffer(2, audio.left.length, audio.sampleRate);
     buffer.copyToChannel(audio.left as Float32Array<ArrayBuffer>, 0);
     buffer.copyToChannel(audio.right as Float32Array<ArrayBuffer>, 1);
+    this.reportProgress(song.id, 1);
     return buffer;
   }
 
@@ -199,6 +222,11 @@ export class AudioManager {
       try {
         this.worker = new Worker(new URL('./songRender.worker.ts', import.meta.url), { type: 'module' });
         this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+          if (e.data.progress !== undefined) {
+            this.progressById.get(e.data.id)?.(e.data.progress);
+            return;
+          }
+          this.progressById.delete(e.data.id);
           const cb = this.pending.get(e.data.id);
           this.pending.delete(e.data.id);
           cb?.(e.data);
@@ -222,6 +250,7 @@ export class AudioManager {
         if (r.ok) resolve({ sampleRate: r.sampleRate, left: r.left, right: r.right });
         else reject(new Error(r.error));
       });
+      this.progressById.set(id, (f) => this.reportProgress(song.id, f));
       this.worker!.postMessage({ id, composition: song.composition, sampleRate: RENDER_SAMPLE_RATE });
     });
   }

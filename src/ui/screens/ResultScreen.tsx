@@ -7,6 +7,7 @@ import type { SaveOutcome } from '../../storage/records';
 import { useApp } from '../appContext';
 import { MenuBackground } from '../components/MenuBackground';
 import { RankBadge } from '../components/RankBadge';
+import { TimingPanel } from '../components/TimingPanel';
 import { formatAccuracy, formatScore } from '../format';
 import { useCountUp } from '../hooks/useCountUp';
 import { useMenuNavigation } from '../hooks/useMenuNavigation';
@@ -127,6 +128,7 @@ export function ResultScreen({ result, saved, onRetry, onSongSelect, onHome }: P
               </b>
             </li>
           </ul>
+          <TimingPanel timing={result.timing} autoplay={result.autoplay} />
         </section>
       </div>
 

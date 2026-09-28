@@ -1,11 +1,12 @@
 import type { AudioManager, MusicHandle } from '../audio/AudioManager';
 import type { CompositionAnalysis } from '../audio/synth/music';
 import { feverFillSize } from '../config/fever';
-import { FAST_SLOW_THRESHOLD } from '../config/judgment';
+import { FAST_SLOW_THRESHOLD, JUDGMENT_WINDOWS } from '../config/judgment';
 import { computeRank } from '../config/rank';
 import { LANE_COUNT } from '../constants';
 import type { Chart, DifficultyId, Judgment, Note, PlayResult, SongDefinition } from '../types';
 import { GameClock } from './GameClock';
+import { summarizeTiming } from './timing';
 import { InputManager } from './InputManager';
 import { JudgmentSystem, NS, type JudgeEvent } from './JudgmentSystem';
 import {
@@ -16,7 +17,8 @@ import {
   totalJudgmentsFor,
 } from './ScoreSystem';
 
-export type EnginePhase = 'countdown' | 'playing' | 'paused' | 'resuming' | 'finishing' | 'finished';
+/** `ready`: created but not started (e.g. behind the HOW TO PLAY card). */
+export type EnginePhase = 'ready' | 'countdown' | 'playing' | 'paused' | 'resuming' | 'finishing' | 'finished';
 
 export interface JudgmentPresentation extends JudgeEvent {
   points: number;
@@ -83,7 +85,7 @@ export class GameEngine {
   readonly maxScore: number;
   readonly input: InputManager;
   readonly clock: GameClock;
-  phase: EnginePhase = 'countdown';
+  phase: EnginePhase = 'ready';
   autoplay: boolean;
   /** Song time of the last frame. */
   t: number;
@@ -111,6 +113,8 @@ export class GameEngine {
   private finalResult: PlayResult | null = null;
   private tickInterval: number;
   private scheduledSfx: (() => void)[] = [];
+  /** Press offsets (s) of player-made judgments, for the timing summary. */
+  private pressOffsets: number[] = [];
 
   constructor(opts: EngineOptions) {
     this.opts = opts;
@@ -149,6 +153,7 @@ export class GameEngine {
   // ------------------------------------------------------------------ lifecycle
 
   start(): void {
+    if (this.phase !== 'ready') return;
     this.input.attach();
     const leadIn = COUNTDOWN_BEATS * this.spb + READY_SECONDS;
     this.beginAt(-leadIn);
@@ -187,6 +192,11 @@ export class GameEngine {
     }
   }
 
+  /** Draw one frame without starting (e.g. behind the HOW TO PLAY card). */
+  renderStill(): void {
+    for (const p of this.presenters) p.frame?.(this, this.t, 0);
+  }
+
   destroy(): void {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
@@ -197,7 +207,7 @@ export class GameEngine {
   }
 
   pause(): void {
-    if (this.phase === 'paused' || this.phase === 'finishing' || this.phase === 'finished') return;
+    if (this.phase !== 'countdown' && this.phase !== 'playing' && this.phase !== 'resuming') return;
     this.pausedAt = this.clock.pause();
     this.t = this.pausedAt;
     this.cancelScheduledSfx();
@@ -346,6 +356,9 @@ export class GameEngine {
   // ------------------------------------------------------------------ judgment → score → presentation
 
   private handleJudge(ev: JudgeEvent, t: number): void {
+    if (!this.autoplay && ev.kind !== 'tail' && Math.abs(ev.offset) <= JUDGMENT_WINDOWS.miss) {
+      this.pressOffsets.push(ev.offset);
+    }
     const outcome = this.score.apply(ev.judgment, ev.note.type, t, ev.offset, FAST_SLOW_THRESHOLD);
     this.emit('judgment', {
       ...ev,
@@ -406,6 +419,7 @@ export class GameEngine {
       allPerfect: fullCombo && s.counts.perfect === total,
       autoplay: this.autoplay,
       scoreRatio,
+      timing: summarizeTiming(this.pressOffsets, this.opts.userOffsetMs),
       playedAt: Date.now(),
     };
   }

@@ -91,7 +91,10 @@ export function App() {
     audio.unlock();
     audio.playSfx('menuSelect');
     setStarted(true);
-  }, []);
+    // Warm the cache so PLAY starts instantly.
+    const last = getSong(settings.lastSongId);
+    if (last) void audio.loadSong(last);
+  }, [settings.lastSongId]);
 
   let body: ReactNode;
   let key: string = screen.name;

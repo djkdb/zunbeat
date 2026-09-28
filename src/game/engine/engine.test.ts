@@ -7,6 +7,7 @@ import { computeAccuracy, comboMultiplier } from '../config/scoring';
 import { SONGS, availableDifficulties, loadChart } from '../songs';
 import { JudgmentSystem, NS } from './JudgmentSystem';
 import { ScoreSystem, theoreticalMaxScore, totalJudgmentsFor } from './ScoreSystem';
+import { suggestedOffset, summarizeTiming } from './timing';
 
 const chart = (text: string) => parseChart(text, { bpm: 120 }).chart.notes;
 
@@ -153,4 +154,33 @@ describe('FEVER placement in real charts', () => {
       });
     }
   }
+});
+
+describe('timing summary + sync suggestion', () => {
+  const late = Array.from({ length: 40 }, (_, i) => 0.11 + ((i % 5) - 2) * 0.01);
+
+  it('measures a consistent lateness and suggests the matching offset', () => {
+    const t = summarizeTiming(late, 0);
+    expect(t.meanMs).toBeCloseTo(110, 0);
+    expect(t.samples).toBe(40);
+    expect(t.histogram.reduce((a, b) => a + b, 0)).toBe(40);
+    expect(suggestedOffset(t, 300)).toBe(110);
+  });
+
+  it('builds on the offset that was already in use', () => {
+    const t = summarizeTiming(late, 50);
+    expect(suggestedOffset(t, 300)).toBe(160);
+    expect(suggestedOffset(summarizeTiming(late, 250), 300)).toBe(300);
+  });
+
+  it('does not suggest anything for on-time or sparse input', () => {
+    const onTime = Array.from({ length: 40 }, (_, i) => ((i % 7) - 3) * 0.008);
+    expect(suggestedOffset(summarizeTiming(onTime, 0), 300)).toBeNull();
+    expect(suggestedOffset(summarizeTiming(late.slice(0, 5), 0), 300)).toBeNull();
+  });
+
+  it('ignores outliers when averaging', () => {
+    const noisy = [...late, 0.17, 0.17, -0.17, -0.17];
+    expect(summarizeTiming(noisy, 0).meanMs).toBeGreaterThan(100);
+  });
 });

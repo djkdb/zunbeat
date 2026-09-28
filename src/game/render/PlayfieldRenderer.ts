@@ -18,6 +18,8 @@ export interface RendererOptions {
   noteSpeed: number;
   reducedMotion: boolean;
   keyLabels: string[];
+  /** Show "TAP" in the receptors during the countdown (touch devices). */
+  touchHints?: boolean;
 }
 
 interface Ring {
@@ -550,12 +552,16 @@ export class PlayfieldRenderer implements GamePresenter {
       ctx.strokeStyle = held ? '#ffffff' : withAlpha(color, 0.55 + pulse * 0.4);
       ctx.lineWidth = held ? 2.5 : 1.5;
       ctx.stroke();
-      if (!l.mobile && this.opts.keyLabels[lane]) {
-        ctx.fillStyle = held ? '#0b0614' : 'rgba(255,255,255,0.55)';
-        ctx.font = `700 ${Math.round(l.noteHeight * 0.6)}px "Chakra Petch", "Rajdhani", system-ui, sans-serif`;
+      const hint = this.opts.keyLabels[lane] ?? (this.opts.touchHints && engine.phase === 'countdown' ? 'TAP' : '');
+      if (hint) {
+        const blink = this.opts.keyLabels[lane] ? 1 : 0.55 + 0.45 * Math.sin(engine.t * 8);
+        // Below the receptor so the judge line never strikes through the label.
+        const size = Math.round(Math.max(11, l.noteHeight * 0.55));
+        ctx.fillStyle = `rgba(255,255,255,${(held ? 0.95 : 0.6) * blink})`;
+        ctx.font = `700 ${size}px "Chakra Petch", "Rajdhani", system-ui, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.opts.keyLabels[lane], cx, y + 1);
+        ctx.textBaseline = 'top';
+        ctx.fillText(hint, cx, y + h / 2 + 6);
       }
     }
 
