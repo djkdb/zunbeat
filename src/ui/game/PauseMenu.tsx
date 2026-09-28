@@ -30,7 +30,7 @@ export function PauseMenu({ onResume, onRestart, onQuit }: Props) {
               refs.current[i] = el;
             }}
             className={`pause__item${i === index ? ' is-active' : ''}`}
-            onMouseEnter={() => setIndex(i)}
+            onPointerEnter={(e) => e.pointerType === 'mouse' && setIndex(i)}
             onFocus={() => setIndex(i)}
             onClick={() => {
               sfx(i === 2 ? 'menuBack' : 'menuSelect');

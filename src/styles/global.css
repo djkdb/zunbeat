@@ -241,9 +241,7 @@ button:disabled {
   display: flex;
   align-items: baseline;
   white-space: nowrap;
-  text-shadow:
-    0 0 24px rgba(255, 61, 139, 0.55),
-    0 0 60px rgba(61, 200, 255, 0.25);
+  filter: drop-shadow(0 0 18px rgba(255, 61, 139, 0.5)) drop-shadow(0 0 40px rgba(61, 200, 255, 0.2));
   animation: logo-reveal 1.1s var(--ease-out) both;
 }
 
@@ -270,7 +268,7 @@ button:disabled {
 
 @keyframes logo-reveal {
   0% {
-    clip-path: inset(0 100% 0 0);
+    clip-path: inset(-60% 100% -60% -20%);
     letter-spacing: 0.4em;
     filter: blur(8px);
   }
@@ -278,7 +276,8 @@ button:disabled {
     filter: blur(0);
   }
   100% {
-    clip-path: inset(0 0 0 0);
+    /* negative insets so the finished logo's glow is not clipped into a box */
+    clip-path: inset(-60% -20% -60% -20%);
     letter-spacing: 0.02em;
   }
 }
@@ -398,10 +397,12 @@ button:disabled {
 }
 
 .title-menu__label {
+  flex: none;
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 18px;
   letter-spacing: 0.18em;
+  white-space: nowrap;
 }
 
 .title-menu__item--play .title-menu__label {
@@ -409,10 +410,14 @@ button:disabled {
 }
 
 .title-menu__sub {
+  min-width: 0;
   font-size: 11px;
   letter-spacing: 0.14em;
   opacity: 0.7;
   text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .title__stats {
@@ -428,6 +433,10 @@ button:disabled {
 
 .title__stats .stat__value {
   font-size: clamp(14px, 3.4vw, 20px);
+}
+
+.title__stats .stat__label {
+  white-space: nowrap;
 }
 
 .title__credit {
@@ -1052,10 +1061,6 @@ button:disabled {
   line-height: 1.1;
 }
 
-.hud__score-lead {
-  color: rgba(255, 255, 255, 0.14);
-}
-
 .hud__accuracy {
   font-family: var(--font-display);
   font-weight: 700;
@@ -1105,7 +1110,14 @@ button:disabled {
 .hud__fever[data-active='true'] .hud__fever-label {
   color: var(--gold);
   text-shadow: 0 0 10px var(--gold);
-  animation: blink 0.5s infinite;
+  animation: fever-pulse 0.5s infinite;
+}
+
+@keyframes fever-pulse {
+  50% {
+    opacity: 0.7;
+    text-shadow: 0 0 2px var(--gold);
+  }
 }
 
 .hud__fever[data-active='true'] .hud__fever-fill {
@@ -1210,8 +1222,8 @@ button:disabled {
   font-family: var(--font-display);
   font-weight: 900;
   font-style: italic;
-  font-size: clamp(30px, calc(var(--lane-w) * 0.5), 60px);
-  letter-spacing: 0.08em;
+  font-size: clamp(26px, calc(var(--highway-w) * 0.095), 58px);
+  letter-spacing: 0.06em;
 }
 
 .hud__judgment[data-judgment='perfect'] .hud__judgment-text {
@@ -1265,11 +1277,13 @@ button:disabled {
   line-height: 1;
   color: #fff;
   text-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.3),
     0 0 40px var(--accent, var(--pink)),
     0 0 90px rgba(61, 200, 255, 0.5);
 }
 
 .hud__countdown[data-kind='go'] {
+  text-shadow: none;
   background: linear-gradient(180deg, #fff, var(--gold));
   -webkit-background-clip: text;
   background-clip: text;
@@ -1299,6 +1313,7 @@ button:disabled {
   color: #07030f;
   background: linear-gradient(100deg, var(--cyan), #fff 50%, var(--cyan));
   box-shadow: 0 0 40px rgba(61, 200, 255, 0.7);
+  mix-blend-mode: screen;
 }
 
 .hud__banner[data-kind='big'] {
@@ -1317,19 +1332,26 @@ button:disabled {
 .hud__final {
   position: absolute;
   left: 50%;
-  top: calc(var(--judge-y) * 0.45);
+  top: calc(var(--judge-y) * 0.4);
   transform: translate(-50%, -50%);
   opacity: 0;
   font-family: var(--font-display);
   font-weight: 900;
   font-style: italic;
-  font-size: clamp(36px, 10vw, 92px);
+  font-size: clamp(26px, 7.4vw, 88px);
   white-space: nowrap;
   color: #fff;
   text-shadow: 0 0 30px var(--cyan);
 }
 
+.hud[data-finished='true'] .hud__combo,
+.hud[data-finished='true'] .hud__judgment {
+  opacity: 0 !important;
+  transition: opacity 0.3s;
+}
+
 .hud__final[data-kind='fc'] {
+  text-shadow: none;
   background: linear-gradient(180deg, #fff 20%, var(--gold));
   -webkit-background-clip: text;
   background-clip: text;
@@ -1338,6 +1360,7 @@ button:disabled {
 }
 
 .hud__final[data-kind='ap'] {
+  text-shadow: none;
   background: linear-gradient(100deg, #ffe45c, #ff3d8b, #3dc8ff, #3dffb0, #ffe45c);
   background-size: 300% 100%;
   -webkit-background-clip: text;
@@ -2242,8 +2265,49 @@ button:disabled {
     font-size: 12px;
   }
 
+  .hud__banner {
+    top: calc(var(--judge-y) * 0.49);
+    font-size: clamp(20px, 6.4vw, 40px);
+    padding: 4px 18px;
+  }
+
+  .hud__banner[data-kind='fever'] {
+    font-size: clamp(32px, 10vw, 60px);
+  }
+
+  .hud__combo {
+    top: calc(var(--judge-y) * 0.33);
+  }
+
+  .hud__combo-number {
+    font-size: clamp(48px, calc(var(--lane-w) * 0.8), 104px);
+  }
+
+  .hud__judgment {
+    top: calc(var(--judge-y) * 0.64);
+  }
+
   .title__stats {
     gap: 16px;
+  }
+
+  .title__stats .stat__label {
+    font-size: 8.5px;
+    letter-spacing: 0.14em;
+  }
+
+  .title-menu__label {
+    font-size: 16px;
+    letter-spacing: 0.12em;
+  }
+
+  .title-menu__item--play .title-menu__label {
+    font-size: 20px;
+  }
+
+  .title-menu__sub {
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
   }
 
   .result {

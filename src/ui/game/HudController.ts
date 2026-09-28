@@ -7,7 +7,6 @@ import type { Layout } from '../../game/render/layout';
 export interface HudRefs {
   root: HTMLElement;
   score: HTMLElement;
-  scoreLead: HTMLElement;
   accuracy: HTMLElement;
   combo: HTMLElement;
   comboNumber: HTMLElement;
@@ -22,8 +21,6 @@ export interface HudRefs {
   banner: HTMLElement;
   finalBanner: HTMLElement;
 }
-
-const SCORE_DIGITS = 7;
 
 /**
  * Imperative HUD: writes straight to DOM nodes and uses the Web Animations API, so
@@ -55,12 +52,24 @@ export class HudController implements GamePresenter {
     s.setProperty('--top-y', `${l.topY}px`);
   }
 
-  private pop(el: HTMLElement, keyframes: Keyframe[], duration: number, easing = 'cubic-bezier(.2,.9,.3,1.3)'): void {
+  /**
+   * Runs a multi-stage keyframe animation. `easing` shapes only the first (entry) segment;
+   * the timeline itself stays linear so later stages (hold, fade) keep their offsets.
+   */
+  private pop(
+    el: HTMLElement,
+    keyframes: Keyframe[],
+    duration: number,
+    easing = 'cubic-bezier(.2,.9,.3,1.3)',
+    fill: FillMode = 'none',
+  ): void {
     if (this.options.reducedMotion) {
-      el.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 120 });
+      const last = keyframes.at(-1)?.opacity ?? 1;
+      el.animate([{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: last }], { duration, fill });
       return;
     }
-    el.animate(keyframes, { duration, easing });
+    const [first, ...rest] = keyframes;
+    el.animate([{ easing, ...first }, ...rest], { duration, fill });
   }
 
   frame(engine: GameEngine, t: number, dt: number): void {
@@ -98,8 +107,6 @@ export class HudController implements GamePresenter {
     const text = String(Math.max(0, value));
     if (text === this.shownScoreText) return;
     this.shownScoreText = text;
-    const lead = text.length < SCORE_DIGITS ? '0'.repeat(SCORE_DIGITS - text.length) : '';
-    this.refs.scoreLead.textContent = lead;
     this.refs.score.textContent = text.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
@@ -122,7 +129,7 @@ export class HudController implements GamePresenter {
         'ease-out',
       );
     } else {
-      const big = e.judgment === 'perfect' ? 1.45 : 1.25;
+      const big = e.judgment === 'perfect' ? 1.3 : 1.15;
       this.pop(
         judgment,
         [
@@ -174,33 +181,35 @@ export class HudController implements GamePresenter {
     el.textContent = String(value);
     el.dataset.kind = typeof value === 'number' ? 'number' : value.toLowerCase();
     const dur = value === 'READY' ? 900 : value === 'GO' ? 700 : 520;
-    if (this.options.reducedMotion) {
-      el.animate([{ opacity: 1 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: dur });
-      return;
-    }
-    el.animate(
+    this.pop(
+      el,
       [
         { transform: 'translate(-50%, -50%) scale(2.2)', opacity: 0 },
-        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.25 },
-        { transform: 'translate(-50%, -50%) scale(1.05)', opacity: 1, offset: 0.7 },
-        { transform: 'translate(-50%, -50%) scale(0.8)', opacity: 0 },
+        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.2 },
+        { transform: 'translate(-50%, -50%) scale(1.05)', opacity: 1, offset: 0.75, easing: 'ease-in' },
+        { transform: 'translate(-50%, -50%) scale(0.85)', opacity: 0 },
       ],
-      { duration: dur, easing: 'cubic-bezier(.2,.9,.3,1)' },
+      dur,
+      'cubic-bezier(.2,.9,.3,1)',
     );
   }
 
   finish(banner: 'ALL PERFECT' | 'FULL COMBO' | 'CLEAR'): void {
+    this.refs.root.dataset.finished = 'true';
     const el = this.refs.finalBanner;
     el.textContent = banner;
     el.dataset.kind = banner === 'CLEAR' ? 'clear' : banner === 'FULL COMBO' ? 'fc' : 'ap';
-    el.animate(
+    this.pop(
+      el,
       [
         { transform: 'translate(-50%, -50%) scaleX(0.2) scaleY(1.6)', opacity: 0, letterSpacing: '0.6em' },
-        { transform: 'translate(-50%, -50%) scale(1.08)', opacity: 1, letterSpacing: '0.12em', offset: 0.18 },
-        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.85 },
+        { transform: 'translate(-50%, -50%) scale(1.08)', opacity: 1, letterSpacing: '0.06em', offset: 0.15 },
+        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.88 },
         { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 0 },
       ],
-      { duration: 2400, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'forwards' },
+      2400,
+      'cubic-bezier(.2,.9,.3,1)',
+      'forwards',
     );
   }
 
@@ -208,14 +217,16 @@ export class HudController implements GamePresenter {
     const el = this.refs.banner;
     el.textContent = text;
     el.dataset.kind = kind;
-    el.animate(
+    this.pop(
+      el,
       [
         { transform: 'translate(-50%, -50%) translateX(-40%) skewX(-18deg)', opacity: 0 },
-        { transform: 'translate(-50%, -50%) translateX(0) skewX(-8deg) scale(1.1)', opacity: 1, offset: 0.15 },
-        { transform: 'translate(-50%, -50%) translateX(2%) skewX(-8deg) scale(1)', opacity: 1, offset: 0.75 },
+        { transform: 'translate(-50%, -50%) translateX(0) skewX(-8deg) scale(1.1)', opacity: 1, offset: 0.14 },
+        { transform: 'translate(-50%, -50%) translateX(2%) skewX(-8deg) scale(1)', opacity: 1, offset: 0.8, easing: 'ease-in' },
         { transform: 'translate(-50%, -50%) translateX(40%) skewX(-18deg)', opacity: 0 },
       ],
-      { duration: kind === 'fever' ? 1500 : 1100, easing: 'cubic-bezier(.2,.8,.2,1)' },
+      kind === 'fever' ? 1500 : 1100,
+      'cubic-bezier(.2,.8,.2,1)',
     );
   }
 }

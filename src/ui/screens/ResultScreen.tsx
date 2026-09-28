@@ -138,7 +138,7 @@ export function ResultScreen({ result, saved, onRetry, onSongSelect, onHome }: P
               refs.current[i] = el;
             }}
             className={`btn ${i === 0 ? 'btn--primary' : 'btn--ghost'}${i === index ? ' is-active' : ''}`}
-            onMouseEnter={() => setIndex(i)}
+            onPointerEnter={(e) => e.pointerType === 'mouse' && setIndex(i)}
             onFocus={() => setIndex(i)}
             onClick={() => {
               sfx(i === 0 ? 'menuSelect' : 'menuBack');

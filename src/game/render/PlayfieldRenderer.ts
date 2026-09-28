@@ -583,7 +583,7 @@ export class PlayfieldRenderer implements GamePresenter {
       ctx.beginPath();
       ctx.ellipse(cx, l.judgeY, rad, rad * 0.42, 0, 0, Math.PI * 2);
       ctx.stroke();
-      if (k < 0.35) {
+      if (k < 0.35 && r.color !== '#ffffff') {
         const g = l.laneWidth * 1.05 * r.size * (1 - k);
         ctx.globalAlpha = (0.35 - k) * 1.3;
         ctx.drawImage(glowSprite(r.color), cx - g, l.judgeY - g * 0.6, g * 2, g * 1.2);

@@ -4,7 +4,7 @@ import type { SfxName } from './game/audio/synth/renderSfx';
 import { isDifficultyId } from './game/config/difficulty';
 import { getSong } from './game/songs';
 import type { DifficultyId, PlayResult } from './game/types';
-import { DEBUG_ENABLED } from './debug';
+import { DEBUG_AUTOPLAY } from './debug';
 import { loadRecords, saveResult, type SaveOutcome } from './storage/records';
 import { loadSettings, saveSettings, type Settings } from './storage/settings';
 import { AppContext, type AppContextValue } from './ui/appContext';
@@ -22,9 +22,6 @@ type Screen =
   | { name: 'settings' }
   | { name: 'game'; songId: string; difficulty: DifficultyId; attempt: number }
   | { name: 'result'; result: PlayResult; saved: SaveOutcome };
-
-const params = new URLSearchParams(window.location.search);
-const DEBUG_AUTOPLAY = DEBUG_ENABLED && params.get('autoplay') === 'true';
 
 export function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);

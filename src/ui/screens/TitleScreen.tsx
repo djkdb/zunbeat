@@ -76,7 +76,8 @@ export function TitleScreen({ started, onStart, onQuickPlay, onSongSelect, onRec
                 }}
                 className={`title-menu__item${i === index ? ' is-active' : ''}${i === 0 ? ' title-menu__item--play' : ''}`}
                 style={{ animationDelay: `${i * 70}ms` }}
-                onMouseEnter={() => {
+                onPointerEnter={(e) => {
+                  if (e.pointerType !== 'mouse') return;
                   if (i !== index) sfx('menuMove');
                   setIndex(i);
                 }}

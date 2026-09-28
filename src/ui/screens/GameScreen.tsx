@@ -6,7 +6,7 @@ import { laneAtX } from '../../game/render/layout';
 import { PlayfieldRenderer } from '../../game/render/PlayfieldRenderer';
 import { getSong, loadChart, songAnalysis } from '../../game/songs';
 import type { Chart, DifficultyId, PlayResult, SongDefinition } from '../../game/types';
-import { DEBUG_ENABLED } from '../../debug';
+import { DEBUG_ENABLED, DEBUG_PANEL } from '../../debug';
 import { keyLabel } from '../../storage/settings';
 import { useApp } from '../appContext';
 import { DebugPanel } from '../game/DebugPanel';
@@ -208,7 +208,7 @@ export function GameScreen({ songId, difficulty, autoplay, onFinish, onRestart, 
           onQuit={onQuit}
         />
       )}
-      {DEBUG_ENABLED && <DebugPanel engine={engine} presenter={debugPresenter} onRestart={onRestart} />}
+      {DEBUG_PANEL && <DebugPanel engine={engine} presenter={debugPresenter} onRestart={onRestart} />}
     </div>
   );
 }

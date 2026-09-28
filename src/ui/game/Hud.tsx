@@ -14,7 +14,6 @@ export const Hud = forwardRef<HudRefs, Props>(function Hud({ song, difficulty, a
   const r = {
     root: useRef<HTMLDivElement>(null),
     score: useRef<HTMLSpanElement>(null),
-    scoreLead: useRef<HTMLSpanElement>(null),
     accuracy: useRef<HTMLSpanElement>(null),
     combo: useRef<HTMLDivElement>(null),
     comboNumber: useRef<HTMLSpanElement>(null),
@@ -53,7 +52,6 @@ export const Hud = forwardRef<HudRefs, Props>(function Hud({ song, difficulty, a
         <div className="hud__score">
           <span className="hud__score-label">SCORE</span>
           <span className="hud__score-value">
-            <span className="hud__score-lead" ref={r.scoreLead} />
             <span ref={r.score} />
           </span>
           <span className="hud__accuracy" ref={r.accuracy} />

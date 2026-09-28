@@ -3,8 +3,8 @@ import { renderComposition, type RenderedAudio } from './synth/renderSong';
 import { SFX_NAMES, renderSfx, type SfxName } from './synth/renderSfx';
 
 const RENDER_SAMPLE_RATE = 44100;
-/** Rendered songs kept in memory (each is ~30 MB). */
-const SONG_CACHE_SIZE = 2;
+/** Rendered songs kept in memory (each is ~30 MB); enough for every built-in song. */
+const SONG_CACHE_SIZE = 3;
 
 export interface Volumes {
   master: number;
