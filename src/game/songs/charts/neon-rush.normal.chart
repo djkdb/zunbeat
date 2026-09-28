@@ -1,5 +1,5 @@
 # NEON RUSH — NORMAL
-# 172 BPM · eighth-note arpeggio runs, doubles on the snare, long holds.
+# 172 BPM · arpeggio runs with breathing room, doubles on the snare, long holds.
 
 [intro]
 - x2
@@ -29,10 +29,10 @@ $v1
 03 . . . 12 . . . 03 . . . 12 . . .
 
 [drop]
-$a = 03 . 1 . 2 . 3 . 2 . 1 . 0 . 1 .
-$b = 0 . 1 . 2 . 3 . 2 . 1 . 0 . 3 .
-$c = 03 . 1 . 2 . 3 . 1 . 2 . 3 . 1 .
-$d = 12 . 1 . 2 . 3 . 3~4 . . . 1 . 0 .
+$a = 03 . 1 . 2 . 3 . . . 1 . 0 . . .
+$b = 0 . 1 . 2 . 3 . . . 2 . 1 . . .
+$c = 03 . 1 . 2 . 3 . . . 2 . 3 . . .
+$d = 12 . . . 2 . 3 . 3~4 . . . 1 . 0 .
 $a
 $b
 $c

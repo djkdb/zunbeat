@@ -12,10 +12,16 @@ function makeCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingCo
   return [c, ctx];
 }
 
-/** Soft radial glow in `color`, 128×128. */
-export function glowSprite(color: string): HTMLCanvasElement {
+const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+/** Hard cap so a bug feeding many distinct colours can never leak canvases. */
+const MAX_CACHED_GLOWS = 48;
+
+/** Soft radial glow in `color` (hex only), 128×128. */
+export function glowSprite(hexColor: string): HTMLCanvasElement {
+  const color = HEX_COLOR.test(hexColor) ? hexColor.toLowerCase() : '#ffffff';
   let s = glowCache.get(color);
   if (s) return s;
+  if (glowCache.size >= MAX_CACHED_GLOWS) glowCache.clear();
   const [c, ctx] = makeCanvas(128, 128);
   const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
   g.addColorStop(0, 'rgba(255,255,255,1)');

@@ -120,10 +120,12 @@ export class AudioManager {
     return this.ctx?.currentTime ?? performance.now() / 1000;
   }
 
-  playSfx(name: SfxName, options: { when?: number; gain?: number; rate?: number } = {}): void {
+  /** Play (or schedule) a sound effect. Returns a canceller for scheduled sounds. */
+  playSfx(name: SfxName, options: { when?: number; gain?: number; rate?: number } = {}): () => void {
     const ctx = this.ctx;
     const buffer = this.sfx.get(name);
-    if (!ctx || !buffer || !this.sfxBus || ctx.state !== 'running') return;
+    const noop = () => undefined;
+    if (!ctx || !buffer || !this.sfxBus || ctx.state !== 'running') return noop;
     try {
       const src = ctx.createBufferSource();
       src.buffer = buffer;
@@ -141,8 +143,15 @@ export class AudioManager {
         if (node !== src) node.disconnect();
       };
       src.start(options.when ?? 0);
+      return () => {
+        try {
+          src.stop();
+        } catch {
+          /* already finished */
+        }
+      };
     } catch {
-      /* ignore */
+      return noop;
     }
   }
 

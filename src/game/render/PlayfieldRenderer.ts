@@ -28,6 +28,9 @@ interface Ring {
   size: number;
 }
 
+/** Fixed hex palette for FEVER particles (glow sprites are cached per colour). */
+const FEVER_PALETTE = ['#ff3d8b', '#ffe45c', '#3dffb0', '#3dc8ff', '#c86bff'];
+
 const JUDGE_COLOR: Record<Judgment, string> = {
   perfect: '#8ffcff',
   great: '#9dff7a',
@@ -382,7 +385,8 @@ export class PlayfieldRenderer implements GamePresenter {
     if (fever && !this.opts.reducedMotion && Math.random() < 0.6) {
       const u = Math.random() < 0.5 ? 0 : LANE_COUNT;
       const z = Math.random() * 0.2;
-      this.particles.spawn(xAt(l, u, scaleAt(l, z)), yAt(l, z), 0, -500 - Math.random() * 400, 0.6, 8, hsl(this.feverHue(), 100, 70), 0);
+      const color = FEVER_PALETTE[Math.floor(this.feverTime * 6) % FEVER_PALETTE.length];
+      this.particles.spawn(xAt(l, u, scaleAt(l, z)), yAt(l, z), 0, -500 - Math.random() * 400, 0.6, 8, color, 0);
     }
     ctx.globalCompositeOperation = 'source-over';
   }

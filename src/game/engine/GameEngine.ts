@@ -110,6 +110,7 @@ export class GameEngine {
   private destroyed = false;
   private finalResult: PlayResult | null = null;
   private tickInterval: number;
+  private scheduledSfx: (() => void)[] = [];
 
   constructor(opts: EngineOptions) {
     this.opts = opts;
@@ -150,27 +151,36 @@ export class GameEngine {
   start(): void {
     this.input.attach();
     const leadIn = COUNTDOWN_BEATS * this.spb + READY_SECONDS;
-    this.beginAt(-leadIn, true);
+    this.beginAt(-leadIn);
     this.setPhase('countdown');
     this.emit('countdown', 'READY');
     this.lastPerf = performance.now();
     this.raf = requestAnimationFrame(this.frame);
   }
 
+  private cancelScheduledSfx(): void {
+    for (const cancel of this.scheduledSfx) cancel();
+    this.scheduledSfx = [];
+  }
+
   /** Start clock + music so that song time `songTime` is heard shortly from now. */
-  private beginAt(songTime: number, scheduleCountdown: boolean): void {
+  private beginAt(songTime: number): void {
+    this.cancelScheduledSfx();
     const ctx = this.opts.audio.ctx;
     const buffer = this.opts.buffer;
     if (ctx && buffer && this.opts.audio.running) {
       const when = ctx.currentTime + 0.08;
       this.clock.start(songTime, when);
       this.music = this.opts.audio.playMusic(buffer, when, songTime, songTime > 0 ? 0.25 : 0);
-      if (scheduleCountdown) {
+      if (songTime < 0) {
+        // Countdown ticks on beats -3..-1 and GO on beat 0, on the audio clock.
         const zeroAt = when - songTime;
-        for (let k = COUNTDOWN_BEATS; k >= 1; k--) {
-          this.opts.audio.playSfx('countTick', { when: zeroAt - k * this.spb, gain: 0.7 });
+        for (let k = COUNTDOWN_BEATS; k >= 0; k--) {
+          const at = zeroAt - k * this.spb;
+          if (at < when - 0.01) continue;
+          const name = k === 0 ? 'countGo' : 'countTick';
+          this.scheduledSfx.push(this.opts.audio.playSfx(name, { when: at, gain: k === 0 ? 0.6 : 0.7 }));
         }
-        this.opts.audio.playSfx('countGo', { when: zeroAt, gain: 0.6 });
       }
     } else {
       this.clock.start(songTime, this.opts.audio.now());
@@ -181,6 +191,7 @@ export class GameEngine {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
     this.input.detach();
+    this.cancelScheduledSfx();
     this.music?.stop(0.15);
     this.music = null;
   }
@@ -189,6 +200,7 @@ export class GameEngine {
     if (this.phase === 'paused' || this.phase === 'finishing' || this.phase === 'finished') return;
     this.pausedAt = this.clock.pause();
     this.t = this.pausedAt;
+    this.cancelScheduledSfx();
     this.music?.stop(0.06);
     this.music = null;
     this.input.releaseAll();
@@ -203,7 +215,7 @@ export class GameEngine {
     this.resumeTarget = this.pausedAt;
     this.countdownShown.clear();
     this.input.enabled = true;
-    this.beginAt(from, false);
+    this.beginAt(from);
     this.setPhase('resuming');
   }
 
@@ -422,7 +434,7 @@ export class GameEngine {
       this.judge.skipBefore(target);
       this.music?.stop(0.03);
       this.music = null;
-      this.beginAt(target, false);
+      this.beginAt(target);
       this.kickPtr = 0;
     },
     triggerFever: () => {
